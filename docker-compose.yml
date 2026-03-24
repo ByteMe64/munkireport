@@ -1,0 +1,41 @@
+services:
+  db:
+    image: mariadb:latest
+    container_name: munkireport_db
+    networks:
+      - db_net
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: munkireport
+      MARIADB_USER: munkiuser
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+  munkireport:
+    # Notice the change here! No 'build: .'
+    image: yourdockerhubusername/munkireport:v5.8.0 
+    container_name: munkireport_app
+    networks:
+      - db_net
+      - external_net
+    ports:
+      - "443:443"
+    environment:
+      DB_HOST: db
+      DB_NAME: munkireport
+      DB_USER: munkiuser
+      DB_PASSWORD: ${DB_PASSWORD}
+      MR_HOST: ${MR_HOST:-localhost}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+networks:
+  db_net:
+    internal: true
+  external_net:
+
+volumes:
+  db_data:
