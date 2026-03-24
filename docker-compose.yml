@@ -5,17 +5,16 @@ services:
     networks:
       - db_net
     environment:
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-SuperSecretRoot123!}
       MARIADB_DATABASE: munkireport
       MARIADB_USER: munkiuser
-      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-MunkiSecretPass123!}
     volumes:
       - db_data:/var/lib/mysql
     restart: unless-stopped
 
   munkireport:
-    # Notice the change here! No 'build: .'
-    image: yourdockerhubusername/munkireport:v5.8.0 
+    build: .
     container_name: munkireport_app
     networks:
       - db_net
@@ -26,15 +25,15 @@ services:
       DB_HOST: db
       DB_NAME: munkireport
       DB_USER: munkiuser
-      DB_PASSWORD: ${DB_PASSWORD}
-      MR_HOST: ${MR_HOST:-localhost}
+      DB_PASSWORD: ${DB_PASSWORD:-MunkiSecretPass123!}
+      MR_HOST: localhost
     depends_on:
       - db
     restart: unless-stopped
 
 networks:
   db_net:
-    internal: true
+    internal: true # Totally isolated from the outside world
   external_net:
 
 volumes:
