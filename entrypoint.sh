@@ -26,7 +26,7 @@ chown -R www-data:www-data /var/www/munkireport
 # Start PHP-FPM socket directory if missing
 mkdir -p /run/php
 
-# Start PHP-FPM as a background service
+# Boot PHP 8.3 FPM
 service php8.3-fpm start
 
 # Start Nginx in the foreground
