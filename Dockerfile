@@ -1,5 +1,5 @@
-# Shift down to Ubuntu 22.04 LTS for native PHP 8.1 (Perfect for MunkiReport 5.8.0)
-FROM ubuntu:22.04
+# Casting our spell with the modern, secure Ubuntu 24.04 LTS (PHP 8.3)
+FROM ubuntu:24.04
 
 # Keep apt-get quiet
 ENV DEBIAN_FRONTEND=noninteractive
@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Allow Composer to run as root inside the container safely
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# Install core dependencies. (Added php-sqlite3 to satisfy Composer dependencies)
+# Install core dependencies (including php-sqlite3 to satisfy Composer)
 RUN apt-get update && apt-get install -y \
     nginx \
     php-fpm \
@@ -30,12 +30,12 @@ RUN mkdir -p /etc/nginx/ssl && \
     -out /etc/nginx/ssl/munkireport.crt \
     -subj "/C=US/ST=State/L=City/O=Security/CN=munkireport.local"
 
-# Fetch MunkiReport v5.8.0 from GitHub and install dependencies
+# Fetch MunkiReport v5.8.0 and force Composer to bypass the outdated PHP version lock
 WORKDIR /var/www/munkireport
 RUN curl -L -o mr.tar.gz https://github.com/munkireport/munkireport-php/archive/refs/tags/v5.8.0.tar.gz && \
     tar -xzf mr.tar.gz --strip-components=1 && \
     rm mr.tar.gz && \
-    composer install --no-dev --optimize-autoloader
+    composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
 # Inject Nginx configuration and entrypoint
 COPY nginx.conf /etc/nginx/sites-available/default
