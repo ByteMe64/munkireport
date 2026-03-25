@@ -1,14 +1,18 @@
-# We cast our spell using the latest Ubuntu LTS (24.04 'Noble Numbat')
-FROM ubuntu:24.04
+# Shift down to Ubuntu 22.04 LTS for native PHP 8.1 (Perfect for MunkiReport 5.8.0)
+FROM ubuntu:22.04
 
-# Keep apt-get quiet during installation
+# Keep apt-get quiet
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install core dependencies: Nginx, PHP, necessary extensions, and Composer
+# Allow Composer to run as root inside the container safely
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
+# Install core dependencies. (Added php-sqlite3 to satisfy Composer dependencies)
 RUN apt-get update && apt-get install -y \
     nginx \
     php-fpm \
     php-mysql \
+    php-sqlite3 \
     php-xml \
     php-mbstring \
     php-curl \
