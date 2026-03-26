@@ -20,7 +20,7 @@ services:
       - db_net
       - external_net
     ports:
-      - "443:443"
+      - "8443:443"
     environment:
       DB_HOST: db
       DB_NAME: munkireport
