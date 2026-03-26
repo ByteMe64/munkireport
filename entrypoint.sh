@@ -23,6 +23,26 @@ EOF
 # Ensure proper permissions for the web server
 chown -R www-data:www-data /var/www/munkireport
 
+# Wait for MariaDB to be fully ready before trying to migrate/add users
+echo "Waiting for database to come online..."
+while ! mysqladmin ping -h"${DB_HOST:-db}" -u"${DB_USER:-munkiuser}" -p"${DB_PASSWORD:-MunkiSecretPass123!}" --silent; do
+    sleep 2
+done
+echo "Database is ready!"
+
+# Navigate to the MunkiReport directory
+cd /var/www/munkireport
+
+# Automate the database migrations (the --force flag stops it from asking "Are you sure?")
+echo "Running database migrations..."
+php please migrate --force
+
+# Automate creating the admin login
+# Syntax: php please user:add <username> <password> <role>
+# The '|| true' at the end prevents the container from crashing if the user already exists on a reboot
+echo "Creating default admin user..."
+php please user:add admin "${MR_ADMIN_PASSWORD:-AdminSecret123!}" admin || true
+
 # Start PHP-FPM socket directory if missing
 mkdir -p /run/php
 
