@@ -1,0 +1,27 @@
+# =============================================================================
+# MunkiReport Local User - admin
+# =============================================================================
+# This file lives at: ./local/users/admin.yml
+# (relative to your docker-compose.yml)
+#
+# The 'password' field must be a bcrypt hash of the user's password.
+#
+# Generate a hash with one of the following commands:
+#
+#   Docker (no local PHP needed):
+#     docker run --rm php:8.1-cli php -r \
+#       "echo password_hash('YourSecurePassword', PASSWORD_BCRYPT) . PHP_EOL;"
+#
+#   PHP (if installed locally):
+#     php -r "echo password_hash('YourSecurePassword', PASSWORD_BCRYPT);"
+#
+# Replace the hash below with your generated hash.
+# The example hash below is for the password: ChangeMe123!
+# DO NOT use this default in production.
+# =============================================================================
+
+username: admin
+realname: Administrator
+# bcrypt hash of 'ChangeMe123!' - REPLACE THIS with your own hash
+password: "$2y$10$bcz7eDcxqw7b450eTQl9RujVae8O05z9El4i750sBMTty.YTecwly"
+email: admin@example.com

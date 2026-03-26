@@ -1,40 +1,115 @@
+---
+# =============================================================================
+# MunkiReport Docker Compose - Portainer Ready
+# =============================================================================
+# Authentication: Local auth enabled with an admin user pre-configured.
+#
+# BEFORE DEPLOYING:
+#   1. Change DB_ROOT_PASSWORD, DB_PASSWORD, and the admin user password below.
+#   2. Replace the admin user YAML under the 'configs' section with a real
+#      bcrypt-hashed password. Generate one with:
+#        docker run --rm php:8.1-cli php -r "echo password_hash('yourpassword', PASSWORD_BCRYPT);"
+#   3. Update WEBHOST to your actual hostname/IP.
+#   4. Adjust volume paths if needed for your Portainer host.
+# =============================================================================
+
+version: "3.8"
+
 services:
+
+  # ---------------------------------------------------------------------------
+  # MariaDB - Database backend
+  # ---------------------------------------------------------------------------
   db:
-    image: mariadb:latest
-    container_name: munkireport_db
-    networks:
-      - db_net
+    image: mariadb:10.11
+    container_name: munkireport-db
+    restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-SuperSecretRoot123!}
-      MARIADB_DATABASE: munkireport
-      MARIADB_USER: munkiuser
-      MARIADB_PASSWORD: ${DB_PASSWORD:-MunkiSecretPass123!}
+      MYSQL_ROOT_PASSWORD: "CHANGE_ME_ROOT_PASSWORD"
+      MYSQL_DATABASE: "munkireport"
+      MYSQL_USER: "munkireport"
+      MYSQL_PASSWORD: "CHANGE_ME_DB_PASSWORD"
     volumes:
-      - db_data:/var/lib/mysql
-    restart: unless-stopped
-
-  munkireport:
-    build: .
-    container_name: munkireport_app
+      - munkireport-db:/var/lib/mysql
     networks:
-      - db_net
-      - external_net
-    ports:
-      - "8443:443"
-    environment:
-      DB_HOST: db
-      DB_NAME: munkireport
-      DB_USER: munkiuser
-      DB_PASSWORD: ${DB_PASSWORD:-MunkiSecretPass123!}
-      MR_HOST: localhost
-    depends_on:
-      - db
+      - munkireport-net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # MunkiReport PHP
+  # ---------------------------------------------------------------------------
+  munkireport:
+    image: ghcr.io/munkireport/munkireport-php:v5.8.0
+    container_name: munkireport
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:80"          # Change the host port (8080) if needed
+    environment:
+      # -- Site Settings -------------------------------------------------------
+      SITENAME: "MunkiReport"
+      WEBHOST: "http://your-host-or-ip:8080"   # <-- Update this
 
-networks:
-  db_net:
-    internal: true # Totally isolated from the outside world
-  external_net:
+      # -- Database ------------------------------------------------------------
+      CONNECTION_DRIVER: "mysql"
+      CONNECTION_HOST: "db"
+      CONNECTION_PORT: "3306"
+      CONNECTION_DATABASE: "munkireport"
+      CONNECTION_USERNAME: "munkireport"
+      CONNECTION_PASSWORD: "CHANGE_ME_DB_PASSWORD"   # Must match MYSQL_PASSWORD above
+      CONNECTION_CHARSET: "utf8mb4"
+      CONNECTION_COLLATION: "utf8mb4_unicode_ci"
 
+      # -- Authentication ------------------------------------------------------
+      # Enables the local (username/password) login form.
+      AUTH_METHODS: "LOCAL"
+
+      # -- Admin Role Assignment -----------------------------------------------
+      # Grant the 'admin' user full admin rights.
+      ROLES_ADMIN: "admin"
+
+      # -- Migrations ----------------------------------------------------------
+      # Allow the app to run DB migrations automatically on first start.
+      ALLOW_MIGRATIONS: "TRUE"
+
+      # -- Modules (customise as needed) ---------------------------------------
+      MODULES: >-
+        disk_report,managedinstalls,munkireport,munkireportinfo,
+        applications,inventory,network,security,filevault_status,
+        softwareupdate,displays_info,installhistory,user_sessions,
+        mdm_status,power,wifi
+
+    volumes:
+      # Persist the local users directory (holds admin YAML file)
+      - munkireport-users:/var/munkireport/local/users
+      # Optional: persist any custom modules or config
+      - munkireport-data:/var/munkireport/local
+      # Mount the admin user YAML at container startup
+      - type: bind
+        source: ./local/users/admin.yml
+        target: /var/munkireport/local/users/admin.yml
+        read_only: true
+    networks:
+      - munkireport-net
+
+# =============================================================================
+# Volumes
+# =============================================================================
 volumes:
-  db_data:
+  munkireport-db:
+  munkireport-users:
+  munkireport-data:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  munkireport-net:
+    driver: bridge
