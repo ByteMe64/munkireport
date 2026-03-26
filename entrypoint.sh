@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-# Securely grab the admin password and generate a PHP password hash
-export MR_ADMIN_PASSWORD="${MR_ADMIN_PASSWORD:-AdminSecret123!}"
-ADMIN_HASH=$(php -r 'echo password_hash("AdminSecret123!", PASSWORD_BCRYPT);')
-
 # Forge the .env file for MunkiReport
 echo "Creating .env configuration..."
 cat <<EOF > /var/www/munkireport/.env
@@ -19,16 +15,14 @@ DB_PORT=3306
 DB_DATABASE=${DB_NAME:-munkireport}
 DB_USERNAME=${DB_USER:-munkiuser}
 DB_PASSWORD=${DB_PASSWORD:-MunkiSecretPass123!}
-
-# Local Authentication Setup
-AUTH_METHODS=LOCAL
 EOF
 
 # Forge the config.php file to inject the local admin user (v5.8.0 specific)
+# This hash translates to the password: admin
 echo "Injecting local admin user..."
-cat <<EOF > /var/www/munkireport/config.php
+cat <<'EOF' > /var/www/munkireport/config.php
 <?php
-\$auth_config['admin'] = '$ADMIN_HASH';
+$auth_config['admin'] = '$P$BDnkPOMPV0BMGL7YROrT9ITzwk3ZWz/';
 EOF
 
 # Ensure proper permissions for the web server
@@ -44,7 +38,7 @@ echo "Database is ready!"
 # Navigate to the MunkiReport directory
 cd /var/www/munkireport
 
-# Automate the database migrations (Removed the unsupported --force flag)
+# Automate the database migrations
 echo "Running database migrations..."
 php please migrate
 
