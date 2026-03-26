@@ -2,15 +2,31 @@
 # =============================================================================
 # MunkiReport Docker Compose - Portainer Ready
 # =============================================================================
-# Authentication: Local auth enabled with an admin user pre-configured.
+#
+# Stack:
+#   munkireport-init  — busybox init container, writes admin user YAML
+#   db                — MariaDB 11.4 LTS (latest LTS as of 2025)
+#   munkireport       — MunkiReport v5.8.0 built from Dockerfile
+#                       Ubuntu 24.04 LTS + PHP 8.3 + Apache 2.4
 #
 # BEFORE DEPLOYING:
-#   1. Change DB_ROOT_PASSWORD, DB_PASSWORD, and the admin user password below.
-#   2. Replace the admin user YAML under the 'configs' section with a real
-#      bcrypt-hashed password. Generate one with:
-#        docker run --rm php:8.1-cli php -r "echo password_hash('yourpassword', PASSWORD_BCRYPT);"
-#   3. Update WEBHOST to your actual hostname/IP.
-#   4. Adjust volume paths if needed for your Portainer host.
+#   1. Set MYSQL_ROOT_PASSWORD and MYSQL_PASSWORD to strong values
+#      (CONNECTION_PASSWORD must match MYSQL_PASSWORD)
+#   2. Set WEBHOST to your server IP/hostname e.g. http://192.168.1.100:8080
+#   3. Default admin login is admin / admin
+#
+# PORTAINER DEPLOYMENT:
+#   In Portainer → Stacks → Add stack → Upload → select this file AND
+#   the Dockerfile from the same folder, then deploy.
+#   Alternatively use "Repository" mode pointing at a git repo containing
+#   both files.
+#
+# NOTE ON PHP VERSION:
+#   MunkiReport v5.8.0 was tested against PHP 8.2. PHP 8.3 is the next
+#   supported version (8.4 is confirmed broken by the MunkiReport team).
+#   PHP 8.1 reached end-of-life December 31 2025 so 8.3 is the best
+#   currently maintained option.
+#
 # =============================================================================
 
 version: "3.8"
@@ -18,10 +34,33 @@ version: "3.8"
 services:
 
   # ---------------------------------------------------------------------------
-  # MariaDB - Database backend
+  # Init container — writes admin.yml into the named volume.
+  # Dollar signs written as octal \044 to prevent shell expansion.
+  # Hash below is phpass for password: admin
+  # ---------------------------------------------------------------------------
+  munkireport-init:
+    image: busybox:latest
+    container_name: munkireport-init
+    restart: "no"
+    volumes:
+      - munkireport-users:/users
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /users
+        printf 'username: admin\n'                                                  > /users/admin.yml
+        printf 'realname: Administrator\n'                                         >> /users/admin.yml
+        printf "password_hash: '\044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0'\n"      >> /users/admin.yml
+        printf 'email: admin@example.com\n'                                        >> /users/admin.yml
+        echo "--- admin.yml written ---"
+        cat /users/admin.yml
+
+  # ---------------------------------------------------------------------------
+  # MariaDB 11.4 LTS — database backend
   # ---------------------------------------------------------------------------
   db:
-    image: mariadb:10.11
+    image: mariadb:11.4
     container_name: munkireport-db
     restart: unless-stopped
     environment:
@@ -41,45 +80,46 @@ services:
       start_period: 30s
 
   # ---------------------------------------------------------------------------
-  # MunkiReport PHP
+  # MunkiReport — built from local Dockerfile
+  # Ubuntu 24.04 LTS + PHP 8.3 + Apache 2.4 + MunkiReport v5.8.0
   # ---------------------------------------------------------------------------
   munkireport:
-    image: ghcr.io/munkireport/munkireport-php:v5.8.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: munkireport-custom:5.8.0-php8.3-ubuntu2404
     container_name: munkireport
     restart: unless-stopped
     depends_on:
+      munkireport-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
     ports:
-      - "8080:80"          # Change the host port (8080) if needed
+      - "8080:80"                            # Change host port if needed
     environment:
-      # -- Site Settings -------------------------------------------------------
+      # -- Site ------------------------------------------------------------------
       SITENAME: "MunkiReport"
-      WEBHOST: "http://127.0.0.1:8080"   # <-- Update this
+      WEBHOST: "http://127.0.0.1:8080" # <-- Update this
 
-      # -- Database ------------------------------------------------------------
+      # -- Database --------------------------------------------------------------
       CONNECTION_DRIVER: "mysql"
       CONNECTION_HOST: "db"
       CONNECTION_PORT: "3306"
       CONNECTION_DATABASE: "munkireport"
       CONNECTION_USERNAME: "munkireport"
-      CONNECTION_PASSWORD: "CHANGE_ME_DB_PASSWORD"   # Must match MYSQL_PASSWORD above
+      CONNECTION_PASSWORD: "CHANGE_ME_DB_PASSWORD"  # Must match MYSQL_PASSWORD
       CONNECTION_CHARSET: "utf8mb4"
       CONNECTION_COLLATION: "utf8mb4_unicode_ci"
 
-      # -- Authentication ------------------------------------------------------
-      # Enables the local (username/password) login form.
+      # -- Auth ------------------------------------------------------------------
       AUTH_METHODS: "LOCAL"
-
-      # -- Admin Role Assignment -----------------------------------------------
-      # Grant the 'admin' user full admin rights.
       ROLES_ADMIN: "admin"
 
-      # -- Migrations ----------------------------------------------------------
-      # Allow the app to run DB migrations automatically on first start.
+      # -- Migrations ------------------------------------------------------------
       ALLOW_MIGRATIONS: "TRUE"
 
-      # -- Modules (customise as needed) ---------------------------------------
+      # -- Modules ---------------------------------------------------------------
       MODULES: >-
         disk_report,managedinstalls,munkireport,munkireportinfo,
         applications,inventory,network,security,filevault_status,
@@ -87,20 +127,15 @@ services:
         mdm_status,power,wifi
 
     volumes:
-      # Persist the local users directory (holds admin YAML file)
+      # Users volume pre-populated by the init container
       - munkireport-users:/var/munkireport/local/users
-      # Optional: persist any custom modules or config
+      # Persistent local data (dashboards, env config, etc.)
       - munkireport-data:/var/munkireport/local
-      # Mount the admin user YAML at container startup
-      - type: bind
-        source: ./local/users/admin.yml
-        target: /var/munkireport/local/users/admin.yml
-        read_only: true
     networks:
       - munkireport-net
 
 # =============================================================================
-# Volumes
+# Volumes — all Docker-managed, nothing required on the host filesystem
 # =============================================================================
 volumes:
   munkireport-db:
