@@ -18,6 +18,9 @@ DB_PASSWORD=${DB_PASSWORD:-MunkiSecretPass123!}
 
 # Local Authentication Setup
 AUTH_METHODS=LOCAL
+
+# NEW: Explicitly grant the 'admin' user administrator privileges
+ROLES_ADMIN="admin, admin@localhost"
 EOF
 
 # Ensure proper permissions for the web server
@@ -38,10 +41,10 @@ echo "Running database migrations..."
 php please migrate --force
 
 # Automate creating the admin login
-# Syntax: php please user:add <username> <password> <role>
-# The '|| true' at the end prevents the container from crashing if the user already exists on a reboot
 echo "Creating default admin user..."
-php please user:add admin "${MR_ADMIN_PASSWORD:-AdminSecret123!}" admin || true
+# The new command is user:create and prompts for Name, Email, and Password.
+# We use printf to automatically answer those three prompts in order.
+printf "admin\nadmin@localhost\n%s\n" "${MR_ADMIN_PASSWORD:-AdminSecret123!}" | php please user:create || true
 
 # Start PHP-FPM socket directory if missing
 mkdir -p /run/php
