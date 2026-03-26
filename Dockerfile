@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     openssl \
     composer \
     unzip \
+    mariadb-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Generate a self-signed cert for HTTPS 
