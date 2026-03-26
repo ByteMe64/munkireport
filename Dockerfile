@@ -37,9 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ---------------------------------------------------------------------------
 # Download and install MunkiReport v5.8.0
+# Uses GitHub's auto-generated source archive (tarball) for the tag
 # ---------------------------------------------------------------------------
-RUN curl -fsSL \
-    https://github.com/munkireport/munkireport-php/releases/download/v5.8.0/munkireport-php-v5.8.0.tar.gz \
+RUN curl -fsSL -L \
+    https://github.com/munkireport/munkireport-php/archive/refs/tags/v5.8.0.tar.gz \
     -o /tmp/munkireport.tar.gz \
     && mkdir -p /var/munkireport \
     && tar -xzf /tmp/munkireport.tar.gz -C /var/munkireport --strip-components=1 \
