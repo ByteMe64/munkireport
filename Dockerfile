@@ -36,15 +36,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# Download and install MunkiReport v5.8.0
-# Uses GitHub's auto-generated source archive (tarball) for the tag
+# Install Composer
+# ---------------------------------------------------------------------------
+RUN curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php \
+    && php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer \
+    && rm /tmp/composer-setup.php
+
+# ---------------------------------------------------------------------------
+# Download MunkiReport v5.8.0 source and install dependencies via Composer
 # ---------------------------------------------------------------------------
 RUN curl -fsSL -L \
     https://github.com/munkireport/munkireport-php/archive/refs/tags/v5.8.0.tar.gz \
     -o /tmp/munkireport.tar.gz \
     && mkdir -p /var/munkireport \
     && tar -xzf /tmp/munkireport.tar.gz -C /var/munkireport --strip-components=1 \
-    && rm /tmp/munkireport.tar.gz
+    && rm /tmp/munkireport.tar.gz \
+    && cd /var/munkireport \
+    && composer install --no-dev --optimize-autoloader --no-interaction
 
 # ---------------------------------------------------------------------------
 # Apache virtual host — document root is MunkiReport's public/ folder
