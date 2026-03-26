@@ -1,30 +1,23 @@
+---
 # =============================================================================
-# MunkiReport Docker Compose - Portainer Ready
+# MunkiReport Docker Compose - Portainer Ready (No bind mounts)
 # =============================================================================
 #
 # Stack:
-#   munkireport-init  — busybox init container, writes admin user YAML
-#   db                — MariaDB 11.4 LTS (latest LTS as of 2025)
-#   munkireport       — MunkiReport v5.8.0 built from Dockerfile
+#   munkireport-init  — writes admin user YAML into a named volume
+#   db                — MariaDB 11.4 LTS
+#   munkireport       — MunkiReport v5.8.0, built from Dockerfile
 #                       Ubuntu 24.04 LTS + PHP 8.3 + Apache 2.4
 #
 # BEFORE DEPLOYING:
 #   1. Set MYSQL_ROOT_PASSWORD and MYSQL_PASSWORD to strong values
-#      (CONNECTION_PASSWORD must match MYSQL_PASSWORD)
-#   2. Set WEBHOST to your server IP/hostname e.g. http://192.168.1.100:8080
-#   3. Default admin login is admin / admin
+#      (CONNECTION_PASSWORD must match MYSQL_PASSWORD exactly)
+#   2. Default admin login: username=admin  password=admin
 #
 # PORTAINER DEPLOYMENT:
-#   In Portainer → Stacks → Add stack → Upload → select this file AND
-#   the Dockerfile from the same folder, then deploy.
-#   Alternatively use "Repository" mode pointing at a git repo containing
-#   both files.
-#
-# NOTE ON PHP VERSION:
-#   MunkiReport v5.8.0 was tested against PHP 8.2. PHP 8.3 is the next
-#   supported version (8.4 is confirmed broken by the MunkiReport team).
-#   PHP 8.1 reached end-of-life December 31 2025 so 8.3 is the best
-#   currently maintained option.
+#   Use Stacks → Add stack → Repository, pointing at the repo containing
+#   both this file and the Dockerfile. Portainer will build the image
+#   automatically before starting the stack.
 #
 # =============================================================================
 
@@ -48,15 +41,15 @@ services:
       - -c
       - |
         mkdir -p /users
-        printf 'username: admin\n'                                                  > /users/admin.yml
-        printf 'realname: Administrator\n'                                         >> /users/admin.yml
-        printf "password_hash: '\044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0'\n"      >> /users/admin.yml
-        printf 'email: admin@example.com\n'                                        >> /users/admin.yml
+        printf 'username: admin\n'                                                > /users/admin.yml
+        printf 'realname: Administrator\n'                                       >> /users/admin.yml
+        printf "password_hash: '\044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0'\n"    >> /users/admin.yml
+        printf 'email: admin@example.com\n'                                      >> /users/admin.yml
         echo "--- admin.yml written ---"
         cat /users/admin.yml
 
   # ---------------------------------------------------------------------------
-  # MariaDB 11.4 LTS — database backend
+  # MariaDB 11.4 LTS
   # ---------------------------------------------------------------------------
   db:
     image: mariadb:11.4
@@ -79,7 +72,7 @@ services:
       start_period: 30s
 
   # ---------------------------------------------------------------------------
-  # MunkiReport — built from local Dockerfile
+  # MunkiReport — built from Dockerfile in this repo
   # Ubuntu 24.04 LTS + PHP 8.3 + Apache 2.4 + MunkiReport v5.8.0
   # ---------------------------------------------------------------------------
   munkireport:
@@ -95,30 +88,24 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8080:80"                            # Change host port if needed
+      - "8080:80"
     environment:
-      # -- Site ------------------------------------------------------------------
       SITENAME: "MunkiReport"
-      WEBHOST: "http://127.0.0.1:8080" # <-- Update this
+      WEBHOST: "http://127.0.0.1:8080"
 
-      # -- Database --------------------------------------------------------------
       CONNECTION_DRIVER: "mysql"
       CONNECTION_HOST: "db"
       CONNECTION_PORT: "3306"
       CONNECTION_DATABASE: "munkireport"
       CONNECTION_USERNAME: "munkireport"
-      CONNECTION_PASSWORD: "CHANGE_ME_DB_PASSWORD"  # Must match MYSQL_PASSWORD
+      CONNECTION_PASSWORD: "CHANGE_ME_DB_PASSWORD"
       CONNECTION_CHARSET: "utf8mb4"
       CONNECTION_COLLATION: "utf8mb4_unicode_ci"
 
-      # -- Auth ------------------------------------------------------------------
       AUTH_METHODS: "LOCAL"
       ROLES_ADMIN: "admin"
-
-      # -- Migrations ------------------------------------------------------------
       ALLOW_MIGRATIONS: "TRUE"
 
-      # -- Modules ---------------------------------------------------------------
       MODULES: >-
         disk_report,managedinstalls,munkireport,munkireportinfo,
         applications,inventory,network,security,filevault_status,
@@ -126,9 +113,7 @@ services:
         mdm_status,power,wifi
 
     volumes:
-      # Users volume pre-populated by the init container
       - munkireport-users:/var/munkireport/local/users
-      # Persistent local data (dashboards, env config, etc.)
       - munkireport-data:/var/munkireport/local
     networks:
       - munkireport-net
