@@ -38,8 +38,8 @@ RUN curl -L -o mr.tar.gz https://github.com/munkireport/munkireport-php/archive/
     rm mr.tar.gz && \
     composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
-# Automatically patch the missing runningUnitTests method to fix the Laravel Prompts crash
-RUN sed -i '/public function __construct()/i \    public function runningUnitTests() { return false; }\n' /var/www/munkireport/vendor/illuminate/container/Container.php || true
+# Automatically patch the missing runningUnitTests method
+RUN php -r '$f="/var/www/munkireport/vendor/illuminate/container/Container.php"; $c=file_get_contents($f); $c=substr_replace($c, "    public function runningUnitTests() { return false; }\n}", strrpos($c, "}"), 1); file_put_contents($f, $c);'
 
 # Inject Nginx configuration and entrypoint
 COPY nginx.conf /etc/nginx/sites-available/default
