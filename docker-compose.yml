@@ -55,7 +55,7 @@ services:
     environment:
       # -- Site Settings -------------------------------------------------------
       SITENAME: "MunkiReport"
-      WEBHOST: "http://your-host-or-ip:8080"   # <-- Update this
+      WEBHOST: "http://127.0.0.1:8080"   # <-- Update this
 
       # -- Database ------------------------------------------------------------
       CONNECTION_DRIVER: "mysql"
