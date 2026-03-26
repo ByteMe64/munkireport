@@ -3,7 +3,7 @@ set -e
 
 # Securely grab the admin password and generate a PHP password hash
 export MR_ADMIN_PASSWORD="${MR_ADMIN_PASSWORD:-AdminSecret123!}"
-ADMIN_HASH=$(php -r "echo password_hash(getenv('MR_ADMIN_PASSWORD'), PASSWORD_BCRYPT);")
+ADMIN_HASH=$(php -r 'echo password_hash("AdminSecret123!", PASSWORD_BCRYPT);')
 
 # Forge the .env file for MunkiReport
 echo "Creating .env configuration..."
@@ -28,7 +28,7 @@ EOF
 echo "Injecting local admin user..."
 cat <<EOF > /var/www/munkireport/config.php
 <?php
-\$conf['auth']['admin'] = '$ADMIN_HASH';
+\$auth_config['admin'] = '$ADMIN_HASH';
 EOF
 
 # Ensure proper permissions for the web server
