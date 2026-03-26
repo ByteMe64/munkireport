@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Securely grab the admin password and generate a PHP password hash
+export MR_ADMIN_PASSWORD="${MR_ADMIN_PASSWORD:-AdminSecret123!}"
+ADMIN_HASH=$(php -r "echo password_hash(getenv('MR_ADMIN_PASSWORD'), PASSWORD_BCRYPT);")
+
 # Forge the .env file for MunkiReport
 echo "Creating .env configuration..."
 cat <<EOF > /var/www/munkireport/.env
@@ -18,15 +22,19 @@ DB_PASSWORD=${DB_PASSWORD:-MunkiSecretPass123!}
 
 # Local Authentication Setup
 AUTH_METHODS=LOCAL
+EOF
 
-# NEW: Explicitly grant the 'admin' user administrator privileges
-ROLES_ADMIN="admin, admin@localhost"
+# Forge the config.php file to inject the local admin user (v5.8.0 specific)
+echo "Injecting local admin user..."
+cat <<EOF > /var/www/munkireport/config.php
+<?php
+\$conf['auth']['admin'] = '$ADMIN_HASH';
 EOF
 
 # Ensure proper permissions for the web server
 chown -R www-data:www-data /var/www/munkireport
 
-# Wait for MariaDB to be fully ready before trying to migrate/add users
+# Wait for MariaDB to be fully ready before trying to migrate
 echo "Waiting for database to come online..."
 while ! mysqladmin ping -h"${DB_HOST:-db}" -u"${DB_USER:-munkiuser}" -p"${DB_PASSWORD:-MunkiSecretPass123!}" --silent; do
     sleep 2
@@ -36,15 +44,9 @@ echo "Database is ready!"
 # Navigate to the MunkiReport directory
 cd /var/www/munkireport
 
-# Automate the database migrations (the --force flag stops it from asking "Are you sure?")
+# Automate the database migrations (Removed the unsupported --force flag)
 echo "Running database migrations..."
-php please migrate --force
-
-# Automate creating the admin login
-echo "Creating default admin user..."
-# The new command is user:create and prompts for Name, Email, and Password.
-# We use printf to automatically answer those three prompts in order.
-printf "admin\nadmin@localhost\n%s\n" "${MR_ADMIN_PASSWORD:-AdminSecret123!}" | php please user:create || true
+php please migrate
 
 # Start PHP-FPM socket directory if missing
 mkdir -p /run/php
