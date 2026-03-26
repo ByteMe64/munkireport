@@ -15,10 +15,13 @@ DB_PORT=3306
 DB_DATABASE=${DB_NAME:-munkireport}
 DB_USERNAME=${DB_USER:-munkiuser}
 DB_PASSWORD=${DB_PASSWORD:-MunkiSecretPass123!}
+
+# Explicitly enable local authentication
+AUTH_METHODS=LOCAL
 EOF
 
-# Forge the config.php file to inject the local admin user (v5.8.0 specific)
-# This hash translates to the password: admin
+# Forge the config.php file to inject the local admin user
+# This specific hash translates exactly to the password: admin
 echo "Injecting local admin user..."
 cat <<'EOF' > /var/www/munkireport/config.php
 <?php
