@@ -74,12 +74,12 @@ services:
   # ---------------------------------------------------------------------------
   # MunkiReport — built from Dockerfile in this repo
   # Ubuntu 24.04 LTS + PHP 8.3 + Apache 2.4 + MunkiReport v5.8.0
+  # Note: no 'image:' tag here — this is build-only, not pulled from a registry
   # ---------------------------------------------------------------------------
   munkireport:
     build:
       context: .
       dockerfile: Dockerfile
-    image: munkireport-custom:5.8.0-php8.3-ubuntu2404
     container_name: munkireport
     restart: unless-stopped
     depends_on:
