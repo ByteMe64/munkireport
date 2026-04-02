@@ -44,7 +44,7 @@ services:
   #   Encoded in printf:      \044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0
   # ---------------------------------------------------------------------------
   munkireport-init:
-    image: busybox:${BUSYBOX_VERSION}
+    image: busybox:${BUSYBOX_VERSION:-latest}
     container_name: munkireport-init
     restart: "no"
     volumes:
@@ -65,7 +65,7 @@ services:
   # MariaDB 11.4 LTS
   # ---------------------------------------------------------------------------
   db:
-    image: mariadb:${MARIADB_VERSION}
+    image: mariadb:${MARIADB_VERSION:-11.4}
     container_name: munkireport-db
     restart: unless-stopped
     environment:
@@ -94,7 +94,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        MUNKIREPORT_VERSION: ${MUNKIREPORT_VERSION}
+        MUNKIREPORT_VERSION: "5.8.0"
     container_name: munkireport
     restart: unless-stopped
     depends_on:
@@ -103,10 +103,10 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "${MUNKIREPORT_PORT}:80"
+      - "${MUNKIREPORT_PORT:-8080}:80"
     environment:
-      SITENAME: "${SITENAME}"
-      WEBHOST: "${WEBHOST}"
+      SITENAME: "${SITENAME:-MunkiReport}"
+      WEBHOST: "${WEBHOST:-http://127.0.0.1:8080}"
 
       CONNECTION_DRIVER: "mysql"
       CONNECTION_HOST: "db"
