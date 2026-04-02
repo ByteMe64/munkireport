@@ -27,9 +27,21 @@ services:
 
   # ---------------------------------------------------------------------------
   # Init container — writes admin.yml into the named volume.
-  # Dollar signs written as octal \044 to prevent shell expansion.
-  # Hash below is phpass for password: admin
-  # printf "password_hash: '\044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0'\n"    >> /users/admin.yml
+  #
+  # PASSWORD HASH ESCAPING NOTES (for future reference):
+  #   Inside a double-quoted printf string, only these characters need escaping:
+  #     $  → \044  (prevents shell variable expansion)
+  #     \  → \\    (literal backslash — does not appear in bcrypt/phpass hashes)
+  #     `  → \`    (prevents command substitution — does not appear in hashes)
+  #
+  #   bcrypt ($2y$...) and phpass ($P$...) hashes only use [A-Za-z0-9./] plus $,
+  #   so in practice only $ needs escaping → replace every $ with \044.
+  #
+  #   Example — bcrypt hash:  $2y$10$abc...xyz
+  #   Encoded in printf:      \0442y\04410\044abc...xyz
+  #
+  #   Example — phpass hash:  $P$BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0
+  #   Encoded in printf:      \044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0
   # ---------------------------------------------------------------------------
   munkireport-init:
     image: busybox:latest
