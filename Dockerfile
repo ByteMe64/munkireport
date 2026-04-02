@@ -3,13 +3,15 @@
 # Base:  Ubuntu 24.04 LTS (Noble Numbat)
 # PHP:   8.3
 # Web:   Apache 2.4
-# App:   MunkiReport v5.8.0
+# App:   MunkiReport (version set via MUNKIREPORT_VERSION build arg)
 # =============================================================================
 
 FROM ubuntu:24.04
 
+ARG MUNKIREPORT_VERSION=5.8.0
+
 LABEL maintainer="your-team@example.com"
-LABEL description="MunkiReport v5.8.0 on Ubuntu 24.04 LTS with PHP 8.3"
+LABEL description="MunkiReport v${MUNKIREPORT_VERSION} on Ubuntu 24.04 LTS with PHP 8.3"
 
 # Prevent apt from prompting during build
 ENV DEBIAN_FRONTEND=noninteractive
@@ -43,10 +45,10 @@ RUN curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php \
     && rm /tmp/composer-setup.php
 
 # ---------------------------------------------------------------------------
-# Download MunkiReport v5.8.0 source and install dependencies via Composer
+# Download MunkiReport source and install dependencies via Composer
 # ---------------------------------------------------------------------------
 RUN curl -fsSL -L \
-    https://github.com/munkireport/munkireport-php/archive/refs/tags/v5.8.0.tar.gz \
+    https://github.com/munkireport/munkireport-php/archive/refs/tags/v${MUNKIREPORT_VERSION}.tar.gz \
     -o /tmp/munkireport.tar.gz \
     && mkdir -p /var/munkireport \
     && tar -xzf /tmp/munkireport.tar.gz -C /var/munkireport --strip-components=1 \

@@ -44,7 +44,7 @@ services:
   #   Encoded in printf:      \044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0
   # ---------------------------------------------------------------------------
   munkireport-init:
-    image: busybox:latest
+    image: busybox:${BUSYBOX_VERSION}
     container_name: munkireport-init
     restart: "no"
     volumes:
@@ -65,14 +65,14 @@ services:
   # MariaDB 11.4 LTS
   # ---------------------------------------------------------------------------
   db:
-    image: mariadb:11.4
+    image: mariadb:${MARIADB_VERSION}
     container_name: munkireport-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: "CHANGE_ME_ROOT_PASSWORD"
-      MYSQL_DATABASE: "munkireport"
-      MYSQL_USER: "munkireport"
-      MYSQL_PASSWORD: "CHANGE_ME_DB_PASSWORD"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
     volumes:
       - munkireport-db:/var/lib/mysql
     networks:
@@ -93,6 +93,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        MUNKIREPORT_VERSION: ${MUNKIREPORT_VERSION}
     container_name: munkireport
     restart: unless-stopped
     depends_on:
@@ -101,17 +103,17 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8080:80"
+      - "${MUNKIREPORT_PORT}:80"
     environment:
-      SITENAME: "MunkiReport"
-      WEBHOST: "http://127.0.0.1:8080"
+      SITENAME: "${SITENAME}"
+      WEBHOST: "${WEBHOST}"
 
       CONNECTION_DRIVER: "mysql"
       CONNECTION_HOST: "db"
       CONNECTION_PORT: "3306"
-      CONNECTION_DATABASE: "munkireport"
-      CONNECTION_USERNAME: "munkireport"
-      CONNECTION_PASSWORD: "CHANGE_ME_DB_PASSWORD"
+      CONNECTION_DATABASE: "${MYSQL_DATABASE}"
+      CONNECTION_USERNAME: "${MYSQL_USER}"
+      CONNECTION_PASSWORD: "${MYSQL_PASSWORD}"
       CONNECTION_CHARSET: "utf8mb4"
       CONNECTION_COLLATION: "utf8mb4_unicode_ci"
 
