@@ -43,7 +43,8 @@ services:
         mkdir -p /users
         printf 'username: admin\n'                                                > /users/admin.yml
         printf 'realname: Administrator\n'                                       >> /users/admin.yml
-        printf "password_hash: '\044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0'\n"    >> /users/admin.yml
+        printf "password_hash: '\044P\2y\044P\10\044P\NeXj2vRALSHtnXRaF.3HCeb65ajbdjafRSy6BK/lfJph4LvzRe5xS'\n"    >> /users/admin.yml
+# printf "password_hash: '\044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0'\n"    >> /users/admin.yml
         printf 'email: admin@example.com\n'                                      >> /users/admin.yml
         echo "--- admin.yml written ---"
         cat /users/admin.yml
