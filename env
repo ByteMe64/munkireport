@@ -1,0 +1,65 @@
+# =============================================================================
+# MunkiReport Stack — Environment Variables
+# =============================================================================
+# Copy this file to .env and fill in every value marked CHANGE_ME.
+# NEVER commit .env to version control — add it to .gitignore.
+# In Portainer: paste these key=value pairs into the Stack environment UI
+# instead of using this file.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Version pins — update these to upgrade components without touching any other
+# file. After changing a version, rebuild the stack (Portainer: Update Stack).
+# -----------------------------------------------------------------------------
+PHP_VERSION=8.3
+MARIADB_VERSION=11.4
+MUNKIREPORT_VERSION=5.8.0
+BUSYBOX_VERSION=1.37
+
+# -----------------------------------------------------------------------------
+# Site
+# -----------------------------------------------------------------------------
+# The public-facing URL clients and browsers use to reach MunkiReport.
+# Must be set correctly — Mac clients use this to phone home.
+# Example: https://munkireport.yourdomain.com
+WEBHOST=https://munkireport.yourdomain.com
+SITENAME=MunkiReport
+
+# -----------------------------------------------------------------------------
+# Database credentials — all four must be set before first run.
+# MYSQL_PASSWORD and CONNECTION_PASSWORD must be identical.
+# -----------------------------------------------------------------------------
+MYSQL_ROOT_PASSWORD=CHANGE_ME_ROOT_PASSWORD
+MYSQL_PASSWORD=CHANGE_ME_DB_PASSWORD
+CONNECTION_PASSWORD=CHANGE_ME_DB_PASSWORD
+
+# Fixed values — change only if you know what you are doing
+MYSQL_DATABASE=munkireport
+MYSQL_USER=munkireport
+
+# -----------------------------------------------------------------------------
+# Admin user — generate a new phpass hash before first run.
+# Default below is the hash for the password "admin" — CHANGE IT.
+#
+# To generate a new hash, run:
+#   docker run --rm php:8.3-cli php -r \
+#     "echo password_hash('yourpassword', PASSWORD_BCRYPT) . PHP_EOL;"
+# Then paste the output (starting with $2y$) here, keeping the single quotes.
+# -----------------------------------------------------------------------------
+ADMIN_EMAIL=admin@example.com
+ADMIN_REALNAME=Administrator
+ADMIN_PASSWORD_HASH=$P$BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0
+
+# -----------------------------------------------------------------------------
+# MunkiReport modules — space or comma separated list.
+# Add/remove module names here without touching docker-compose.yml.
+# -----------------------------------------------------------------------------
+MUNKIREPORT_MODULES=disk_report,managedinstalls,munkireport,munkireportinfo,applications,inventory,network,security,filevault_status,softwareupdate,displays_info,installhistory,user_sessions,mdm_status,power,wifi
+
+# -----------------------------------------------------------------------------
+# Port — the host port that maps to the container's port 80.
+# Change if 8080 is already in use on your host.
+# Only relevant if you are NOT using a reverse proxy on the same host.
+# If you ARE using a reverse proxy, set this to 127.0.0.1:8080 or similar.
+# -----------------------------------------------------------------------------
+HOST_PORT=127.0.0.1:8080
