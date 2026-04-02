@@ -4,6 +4,7 @@
 # =============================================================================
 #
 # Stack:
+#   traefik           — reverse proxy, TLS termination, Let's Encrypt
 #   munkireport-init  — writes admin user YAML into a named volume
 #   db                — MariaDB 11.4 LTS
 #   munkireport       — MunkiReport v5.8.0, built from Dockerfile
@@ -12,18 +13,51 @@
 # BEFORE DEPLOYING:
 #   1. Set MYSQL_ROOT_PASSWORD and MYSQL_PASSWORD to strong values
 #      (CONNECTION_PASSWORD must match MYSQL_PASSWORD exactly)
-#   2. Default admin login: username=admin  password=admin
+#   2. Set DOMAIN to your public hostname (must have a DNS A record pointing
+#      at this server for Let's Encrypt to issue a certificate)
+#   3. Set ACME_EMAIL to a real address (Let's Encrypt expiry notices)
+#   4. Set CLIENT_PASSPHRASE — Mac clients must include this when checking in
+#   5. Default admin login: username=admin  password=admin
 #
 # PORTAINER DEPLOYMENT:
 #   Use Stacks → Add stack → Repository, pointing at the repo containing
-#   both this file and the Dockerfile. Portainer will build the image
-#   automatically before starting the stack.
+#   both this file and the Dockerfile. Set all variables under
+#   "Environment variables" in the Portainer stack UI.
 #
 # =============================================================================
 
 version: "3.8"
 
 services:
+
+  # ---------------------------------------------------------------------------
+  # Traefik — reverse proxy, handles HTTPS and Let's Encrypt certificates.
+  # HTTP (port 80) is accepted only to complete the ACME challenge and is then
+  # redirected to HTTPS. All normal traffic uses port 443.
+  # ---------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - traefik-certs:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - munkireport-net
 
   # ---------------------------------------------------------------------------
   # Init container — writes admin.yml into the named volume.
@@ -102,11 +136,16 @@ services:
         condition: service_completed_successfully
       db:
         condition: service_healthy
-    ports:
-      - "${MUNKIREPORT_PORT:-8080}:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.munkireport.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.munkireport.entrypoints=websecure"
+      - "traefik.http.routers.munkireport.tls.certresolver=letsencrypt"
+      - "traefik.http.services.munkireport.loadbalancer.server.port=80"
     environment:
       SITENAME: "${SITENAME:-MunkiReport}"
-      WEBHOST: "${WEBHOST:-http://127.0.0.1:8080}"
+      WEBHOST: "https://${DOMAIN}"
+      PASSPHRASE: "${CLIENT_PASSPHRASE}"
 
       CONNECTION_DRIVER: "mysql"
       CONNECTION_HOST: "db"
@@ -140,6 +179,7 @@ volumes:
   munkireport-db:
   munkireport-users:
   munkireport-data:
+  traefik-certs:
 
 # =============================================================================
 # Networks
