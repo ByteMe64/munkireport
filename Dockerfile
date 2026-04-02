@@ -2,19 +2,12 @@
 # MunkiReport - Custom Image
 # Base:  Ubuntu 24.04 LTS (Noble Numbat)
 # =============================================================================
-# VERSION CONTROL
-# ---------------
-# Component versions are passed in as build ARGs from docker-compose.yml,
-# which in turn reads them from .env. To upgrade, change the value in .env
-# and rebuild — no edits to this file are required.
+# To upgrade PHP or MunkiReport, update the version values in .env and rebuild.
+# No edits to this file are needed for routine version upgrades.
 # =============================================================================
 
 FROM ubuntu:24.04
 
-# ---------------------------------------------------------------------------
-# Build-time version arguments — set defaults here as a safety fallback.
-# The canonical values live in .env and are passed via docker-compose.yml.
-# ---------------------------------------------------------------------------
 ARG PHP_VERSION=8.3
 ARG MUNKIREPORT_VERSION=5.8.0
 
@@ -23,25 +16,13 @@ LABEL description="MunkiReport on Ubuntu 24.04 LTS"
 LABEL munkireport.version="${MUNKIREPORT_VERSION}"
 LABEL php.version="${PHP_VERSION}"
 
-# Prevent apt from prompting during build
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
-
-# Expose ARGs as ENV so they are available at runtime for healthchecks etc.
 ENV PHP_VERSION=${PHP_VERSION}
 ENV MUNKIREPORT_VERSION=${MUNKIREPORT_VERSION}
 
 # ---------------------------------------------------------------------------
-# PHP hardening values — baked in at build time, not runtime-configurable.
-# ---------------------------------------------------------------------------
-ENV PHP_EXPOSE_PHP=Off
-ENV PHP_DISPLAY_ERRORS=Off
-ENV PHP_LOG_ERRORS=On
-ENV PHP_SESSION_COOKIE_HTTPONLY=1
-ENV PHP_SESSION_COOKIE_SECURE=1
-
-# ---------------------------------------------------------------------------
-# System packages + PHP (version from ARG) + Apache
+# System packages + PHP + Apache
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apache2 \
@@ -61,15 +42,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# PHP hardening — applied to the Apache SAPI ini file.
-# Uses the PHP_VERSION ARG so the path is always correct across versions.
+# PHP hardening
 # ---------------------------------------------------------------------------
 RUN PHP_INI="/etc/php/${PHP_VERSION}/apache2/php.ini" \
-    && sed -i "s/^expose_php.*/expose_php = ${PHP_EXPOSE_PHP}/" "$PHP_INI" \
-    && sed -i "s/^display_errors.*/display_errors = ${PHP_DISPLAY_ERRORS}/" "$PHP_INI" \
-    && sed -i "s/^;log_errors.*/log_errors = ${PHP_LOG_ERRORS}/" "$PHP_INI" \
-    && sed -i "s/^;session.cookie_httponly.*/session.cookie_httponly = ${PHP_SESSION_COOKIE_HTTPONLY}/" "$PHP_INI" \
-    && sed -i "s/^;session.cookie_secure.*/session.cookie_secure = ${PHP_SESSION_COOKIE_SECURE}/" "$PHP_INI"
+    && sed -i "s/^expose_php.*/expose_php = Off/" "$PHP_INI" \
+    && sed -i "s/^display_errors.*/display_errors = Off/" "$PHP_INI" \
+    && sed -i "s/^;log_errors.*/log_errors = On/" "$PHP_INI" \
+    && sed -i "s/^;session.cookie_httponly.*/session.cookie_httponly = 1/" "$PHP_INI" \
+    && sed -i "s/^;session.cookie_secure.*/session.cookie_secure = 1/" "$PHP_INI"
 
 # ---------------------------------------------------------------------------
 # Install Composer
@@ -79,7 +59,7 @@ RUN curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php \
     && rm /tmp/composer-setup.php
 
 # ---------------------------------------------------------------------------
-# Download MunkiReport source (version from ARG) and install dependencies
+# Download MunkiReport and install dependencies
 # ---------------------------------------------------------------------------
 RUN curl -fsSL -L \
     "https://github.com/munkireport/munkireport-php/archive/refs/tags/v${MUNKIREPORT_VERSION}.tar.gz" \
@@ -91,9 +71,7 @@ RUN curl -fsSL -L \
     && composer install --no-dev --optimize-autoloader --no-interaction
 
 # ---------------------------------------------------------------------------
-# Apache virtual host — document root is MunkiReport's public/ folder.
-# ServerName is set to a placeholder; override via APACHE_SERVER_NAME env var
-# at runtime if needed (it does not affect MunkiReport functionality).
+# Apache virtual host
 # ---------------------------------------------------------------------------
 RUN echo '<VirtualHost *:80>\n\
     DocumentRoot /var/munkireport/public\n\
@@ -116,9 +94,6 @@ RUN echo '<VirtualHost *:80>\n\
 RUN chown -R www-data:www-data /var/munkireport \
     && chmod -R 755 /var/munkireport
 
-# ---------------------------------------------------------------------------
-# Expose and start Apache in the foreground
-# ---------------------------------------------------------------------------
 EXPOSE 80
 
 CMD ["apache2ctl", "-D", "FOREGROUND"]
