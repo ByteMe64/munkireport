@@ -40,7 +40,7 @@ services:
     container_name: traefik
     restart: unless-stopped
     group_add:
-      - "docker"
+      - "1"
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
