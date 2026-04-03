@@ -4,6 +4,7 @@
 # =============================================================================
 #
 # Stack:
+#   traefik-init      — writes Traefik dynamic config into a named volume
 #   traefik           — reverse proxy, TLS termination, Let's Encrypt
 #   munkireport-init  — writes admin user YAML into a named volume
 #   db                — MariaDB 11.4 LTS
@@ -31,7 +32,43 @@ version: "3.8"
 services:
 
   # ---------------------------------------------------------------------------
+  # Traefik init — writes the dynamic routing config into a named volume.
+  # Uses the DOMAIN variable so Traefik doesn't need Docker socket access.
+  # ---------------------------------------------------------------------------
+  traefik-init:
+    image: busybox:${BUSYBOX_VERSION:-latest}
+    container_name: traefik-init
+    restart: "no"
+    environment:
+      DOMAIN: "${DOMAIN}"
+    volumes:
+      - traefik-config:/etc/traefik/conf.d
+    command:
+      - sh
+      - -c
+      - |
+        cat > /etc/traefik/conf.d/munkireport.yml << EOF
+        http:
+          routers:
+            munkireport:
+              rule: "Host(\`${DOMAIN}\`)"
+              entryPoints:
+                - websecure
+              tls:
+                certResolver: letsencrypt
+              service: munkireport
+          services:
+            munkireport:
+              loadBalancer:
+                servers:
+                  - url: "http://munkireport:80"
+        EOF
+        echo "--- traefik config written ---"
+        cat /etc/traefik/conf.d/munkireport.yml
+
+  # ---------------------------------------------------------------------------
   # Traefik — reverse proxy, handles HTTPS and Let's Encrypt certificates.
+  # Uses a file provider (no Docker socket required).
   # HTTP (port 80) is accepted only to complete the ACME challenge and is then
   # redirected to HTTPS. All normal traffic uses port 443.
   # ---------------------------------------------------------------------------
@@ -39,11 +76,12 @@ services:
     image: traefik:v3.3
     container_name: traefik
     restart: unless-stopped
-    group_add:
-      - "1"
+    depends_on:
+      traefik-init:
+        condition: service_completed_successfully
     command:
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/conf.d"
+      - "--providers.file.watch=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
@@ -57,7 +95,7 @@ services:
       - "443:443"
     volumes:
       - traefik-certs:/letsencrypt
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-config:/etc/traefik/conf.d:ro
     networks:
       - munkireport-net
 
@@ -138,12 +176,6 @@ services:
         condition: service_completed_successfully
       db:
         condition: service_healthy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.munkireport.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.munkireport.entrypoints=websecure"
-      - "traefik.http.routers.munkireport.tls.certresolver=letsencrypt"
-      - "traefik.http.services.munkireport.loadbalancer.server.port=80"
     environment:
       SITENAME: "${SITENAME:-MunkiReport}"
       WEBHOST: "https://${DOMAIN}"
@@ -182,6 +214,7 @@ volumes:
   munkireport-users:
   munkireport-data:
   traefik-certs:
+  traefik-config:
 
 # =============================================================================
 # Networks
