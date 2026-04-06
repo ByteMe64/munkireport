@@ -1,7 +1,7 @@
 # =============================================================================
 # MunkiReport - Custom Image
 # Base:  Ubuntu 24.04 LTS (Noble Numbat)
-# PHP:   8.3
+# PHP:   8.5
 # Web:   Apache 2.4
 # App:   MunkiReport (version set via MUNKIREPORT_VERSION build arg)
 # =============================================================================
@@ -11,30 +11,33 @@ FROM ubuntu:24.04
 ARG MUNKIREPORT_VERSION=5.8.0
 
 LABEL maintainer="your-team@example.com"
-LABEL description="MunkiReport v${MUNKIREPORT_VERSION} on Ubuntu 24.04 LTS with PHP 8.3"
+LABEL description="MunkiReport v${MUNKIREPORT_VERSION} on Ubuntu 24.04 LTS with PHP 8.5"
 
 # Prevent apt from prompting during build
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
 # ---------------------------------------------------------------------------
-# System packages + PHP 8.3 + Apache
+# System packages + PHP 8.5 + Apache
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    apache2 \
-    php8.3 \
-    php8.3-cli \
-    php8.3-mysql \
-    php8.3-mbstring \
-    php8.3-xml \
-    php8.3-curl \
-    php8.3-ldap \
-    php8.3-zip \
-    php8.3-sqlite3 \
-    libapache2-mod-php8.3 \
+    software-properties-common \
+    ca-certificates \
     curl \
     unzip \
-    ca-certificates \
+    && add-apt-repository ppa:ondrej/php \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    apache2 \
+    php8.5 \
+    php8.5-cli \
+    php8.5-mysql \
+    php8.5-mbstring \
+    php8.5-xml \
+    php8.5-curl \
+    php8.5-ldap \
+    php8.5-zip \
+    php8.5-sqlite3 \
+    libapache2-mod-php8.5 \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
@@ -72,7 +75,7 @@ RUN echo '<VirtualHost *:80>\n\
 </VirtualHost>' > /etc/apache2/sites-available/munkireport.conf \
     && a2dissite 000-default \
     && a2ensite munkireport \
-    && a2enmod rewrite php8.3
+    && a2enmod rewrite php8.5
 
 # ---------------------------------------------------------------------------
 # Permissions
