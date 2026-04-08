@@ -9,27 +9,10 @@
 #   munkireport-init  — writes admin user YAML into a named volume
 #   db                — MariaDB 11.4 LTS
 #   munkireport       — MunkiReport v5.8.0, built from Dockerfile
-#                       Ubuntu 24.04 LTS + PHP 8.3 + Apache 2.4
-#
-# BEFORE DEPLOYING:
-#   1. Set MYSQL_ROOT_PASSWORD and MYSQL_PASSWORD to strong values
-#      (CONNECTION_PASSWORD must match MYSQL_PASSWORD exactly)
-#   2. Set DOMAIN to your public hostname (must have a DNS A record pointing
-#      at this server for Let's Encrypt to issue a certificate)
-#   3. Set ACME_EMAIL to a real address (Let's Encrypt expiry notices)
-#   4. Set CLIENT_PASSPHRASE — Mac clients must include this when checking in
-#   5. Default admin login: username=admin  password=admin
-#
-# PORTAINER DEPLOYMENT:
-#   Use Stacks → Add stack → Repository, pointing at the repo containing
-#   both this file and the Dockerfile. Set all variables under
-#   "Environment variables" in the Portainer stack UI.
+#                       Ubuntu 24.04 LTS + PHP 8.5 + Apache 2.4
 #
 # NOTE ON TRAEFIK / DOCKER SOCKET:
-#   Portainer proxies the Docker socket and only speaks API 1.24, which is
-#   rejected by modern Docker daemons (minimum 1.40). Traefik therefore uses
-#   a file provider instead — traefik-init writes the routing config into a
-#   named volume at deploy time. No Docker socket access is required.
+# traefik-init writes the routing config into a named volume at deploy time. No Docker socket access is required.
 #
 # =============================================================================
 
