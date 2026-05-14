@@ -91,25 +91,26 @@ services:
   # ---------------------------------------------------------------------------
   # Init container — writes admin.yml into the named volume.
   #
-  # PASSWORD HASH ESCAPING NOTES (for future reference):
-  #   Inside a double-quoted printf string, only these characters need escaping:
-  #     $  → \044  (prevents shell variable expansion)
-  #     \  → \\    (literal backslash — does not appear in bcrypt/phpass hashes)
-  #     `  → \`    (prevents command substitution — does not appear in hashes)
+  # Admin credentials come from .env (ADMIN_USERNAME, ADMIN_REALNAME,
+  # ADMIN_EMAIL, ADMIN_PASSWORD_HASH). The hash is passed as a container env
+  # var and dereferenced by the shell, so the '$' chars in a bcrypt hash never
+  # go through printf-format parsing — no \044 escaping needed.
   #
-  #   bcrypt ($2y$...) and phpass ($P$...) hashes only use [A-Za-z0-9./] plus $,
-  #   so in practice only $ needs escaping → replace every $ with \044.
+  # In .env, wrap the hash in single quotes so docker compose does not try to
+  # interpolate the '$' characters:
+  #   ADMIN_PASSWORD_HASH='$2y$10$abc...xyz'
   #
-  #   Example — bcrypt hash:  $2y$10$abc...xyz
-  #   Encoded in printf:      \0442y\04410\044abc...xyz
-  #
-  #   Example — phpass hash:  $P$BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0
-  #   Encoded in printf:      \044P\044BVRRqgBtBOrmY9uhku19E4AA.Mg2ZF0
+  # Generate a hash with ./generate-admin-hash.sh
   # ---------------------------------------------------------------------------
   munkireport-init:
     image: busybox:${BUSYBOX_VERSION:-latest}
     container_name: munkireport-init
     restart: "no"
+    environment:
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_REALNAME: "${ADMIN_REALNAME:-Administrator}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@example.com}"
+      ADMIN_PASSWORD_HASH: "${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH must be set in .env}"
     volumes:
       - munkireport-users:/users
     command:
@@ -117,10 +118,12 @@ services:
       - -c
       - |
         mkdir -p /users
-        printf 'username: admin\n'                                                > /users/admin.yml
-        printf 'realname: Administrator\n'                                       >> /users/admin.yml
-        printf "password_hash: '\0442y\04410\044NeXj2vRALSHtnXRaF.3HCeb65ajbdjafRSy6BK/lfJph4LvzRe5xS'\n"    >> /users/admin.yml
-        printf 'email: admin@example.com\n'                                      >> /users/admin.yml
+        {
+          printf 'username: %s\n' "$$ADMIN_USERNAME"
+          printf 'realname: %s\n' "$$ADMIN_REALNAME"
+          printf "password_hash: '%s'\n" "$$ADMIN_PASSWORD_HASH"
+          printf 'email: %s\n' "$$ADMIN_EMAIL"
+        } > /users/admin.yml
         echo "--- admin.yml written ---"
         cat /users/admin.yml
 
