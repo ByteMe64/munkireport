@@ -32,6 +32,7 @@ services:
       DOMAIN: "${DOMAIN}"
     volumes:
       - traefik-config:/etc/traefik/conf.d
+      - /opt/traefik/certs:/certs:ro # remove this for production with valid cert
     command:
       - sh
       - -c
