@@ -1,0 +1,63 @@
+---
+# =============================================================================
+# Demo override — self-signed TLS certificates instead of Let's Encrypt
+# =============================================================================
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+#
+# Prerequisites:
+#   1. Copy env.demo to .env and fill in values (or update your existing .env)
+#   2. Run: bash generate-demo-cert.sh
+#   3. Trust the CA on macOS clients:
+#        sudo security add-trusted-cert -d -r trustRoot \
+#          -k /Library/Keychains/System.keychain certs/ca.crt
+#
+# What this changes from the base docker-compose.yml:
+#   - traefik-init writes TLS file config instead of ACME certResolver config
+#   - traefik drops all ACME/Let's Encrypt args; certs come from ./certs/
+#   - ./certs/ is bind-mounted into traefik (the only bind mount in the stack)
+#
+# =============================================================================
+
+services:
+
+  # Override: write dynamic config that uses file-based TLS, not ACME
+  traefik-init:
+    command:
+      - sh
+      - -c
+      - |
+        cat > /etc/traefik/conf.d/munkireport.yml << EOF
+        http:
+          routers:
+            munkireport:
+              rule: "Host(\`${DOMAIN}\`) || Host(\`localhost\`)"
+              entryPoints:
+                - websecure
+              tls: {}
+              service: munkireport
+          services:
+            munkireport:
+              loadBalancer:
+                servers:
+                  - url: "http://munkireport:80"
+        tls:
+          certificates:
+            - certFile: /certs/server.crt
+              keyFile: /certs/server.key
+        EOF
+        echo "--- traefik demo config written ---"
+        cat /etc/traefik/conf.d/munkireport.yml
+
+  # Override: remove ACME, mount local certs directory
+  traefik:
+    command:
+      - "--providers.file.directory=/etc/traefik/conf.d"
+      - "--providers.file.watch=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    volumes:
+      - ./certs:/certs:ro

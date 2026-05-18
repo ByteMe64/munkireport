@@ -152,7 +152,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # MunkiReport — built from Dockerfile in this repo
-  # Ubuntu 24.04 LTS + PHP 8.3 + Apache 2.4 + MunkiReport v5.8.0
+  # Ubuntu 24.04 LTS + PHP 8.5 + Apache 2.4 + MunkiReport v5.8.0
   # Note: no 'image:' tag here — this is build-only, not pulled from a registry
   # ---------------------------------------------------------------------------
   munkireport:

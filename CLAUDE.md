@@ -10,8 +10,11 @@ Everything in the repo:
 
 - `Dockerfile` — builds the MunkiReport image on Ubuntu 24.04 + PHP 8.5 + Apache 2.4.
 - `docker-compose.yml` — full stack: Traefik (TLS) → MunkiReport → MariaDB 11.4, plus two init containers.
-- `.env` — secrets and host-specific values. Gitignored and not tracked; the local working-tree copy ships with placeholder `CHANGE_ME_*` values that must be replaced before deploy.
+- `env` — **template** for `.env` (note: no dot prefix). Copy to `.env` and replace the `CHANGE_ME_*` placeholders before first deploy. Docker Compose reads `.env` automatically.
+- `generate-admin-hash.sh` — interactive script that produces a bcrypt hash for `.env`'s `ADMIN_PASSWORD_HASH`. Requires `htpasswd` (ships with macOS, `apache2-utils` on Debian/Ubuntu).
 - `client-setup.sh` — runs on a **Mac client**, not the server; installs the MunkiReport agent against a deployed server.
+- `docker-compose.demo.yml` — overlay for local demo: swaps ACME for file-based TLS certs from `./certs/`.
+- `env.demo` — `.env` template pre-filled with localhost-friendly demo defaults.
 
 ## Common commands
 
@@ -31,6 +34,30 @@ docker compose down -v
 ```
 
 There are no tests, linters, or build scripts — this is pure infrastructure config.
+
+### Local demo with self-signed TLS
+
+For a local demo environment that doesn't need Let's Encrypt or a public DNS record:
+
+```bash
+# 1. Create .env from the demo template and set your admin password
+cp env.demo .env
+bash generate-admin-hash.sh        # paste the output line into .env
+
+# 2. Generate CA + server cert for the DOMAIN in .env (default: localhost)
+bash generate-demo-cert.sh
+
+# 3. Trust the CA on the Mac running the demo (and on any Mac clients)
+sudo security add-trusted-cert -d -r trustRoot \
+  -k /Library/Keychains/System.keychain certs/ca.crt
+
+# 4. Deploy with the demo overlay (uses file certs, no ACME)
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+```
+
+If using a DOMAIN other than `localhost`, add a hosts entry: `echo "127.0.0.1 myhost.local" | sudo tee -a /etc/hosts`
+
+The demo overlay (`docker-compose.demo.yml`) is the **only** config that uses a bind mount (`./certs`). The production stack remains fully Portainer-ready.
 
 ## Architecture notes that aren't obvious from one file
 
@@ -63,6 +90,19 @@ Mac clients authenticate to the server by sending a shared secret. The same valu
 - Client side: `PASSPHRASE` at the top of `client-setup.sh` (written to `/Library/Preferences/MunkiReport.plist` on the Mac).
 
 If they don't match, clients silently fail to register.
+
+### Configurable image versions and ports
+
+These `.env` vars have defaults in `docker-compose.yml` so they're easy to miss:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `MARIADB_VERSION` | `11.4` | MariaDB image tag |
+| `BUSYBOX_VERSION` | `latest` | Used by both init containers |
+| `HTTP_PORT` | `80` | Host-side HTTP port |
+| `HTTPS_PORT` | `443` | Host-side HTTPS port |
+
+The MunkiReport version itself is a **build arg** (`MUNKIREPORT_VERSION`, default `5.8.0` in the Dockerfile) — changing it requires a rebuild, not just a restart.
 
 ### Enabled modules
 
