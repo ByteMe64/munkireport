@@ -1,0 +1,261 @@
+---
+# =============================================================================
+# MunkiReport Demo Stack — Portainer Ready (self-signed TLS, no bind mounts)
+# =============================================================================
+#
+# A fully self-contained demo stack. Certificates are generated at deploy time
+# by the cert-init container — no files need to exist on the host beforehand.
+#
+# Deploy via Portainer:
+#   1. Stacks → Add stack → Git Repository
+#   2. Point at this repo/branch, set Compose path to:
+#        docker-compose.portainer-demo.yml
+#   3. Fill in the environment variables (see below)
+#   4. Deploy the stack
+#
+# Required environment variables (set in Portainer's "Environment variables"):
+#   DOMAIN                 — hostname for TLS cert (e.g. munkireport.local)
+#   MYSQL_ROOT_PASSWORD    — MariaDB root password
+#   MYSQL_PASSWORD         — MunkiReport DB user password
+#   ADMIN_PASSWORD_HASH    — bcrypt hash (generate with ./generate-admin-hash.sh)
+#   CLIENT_PASSPHRASE      — shared secret for Mac client authentication
+#
+# After deploy, extract the CA cert to trust on Mac clients:
+#   docker cp cert-init:/certs/ca.crt ./ca.crt
+#   sudo security add-trusted-cert -d -r trustRoot \
+#     -k /Library/Keychains/System.keychain ca.crt
+#
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Cert init — generates a self-signed CA + server cert in a named volume.
+  # Skips generation if certs already exist (safe to restart/redeploy).
+  # ---------------------------------------------------------------------------
+  cert-init:
+    image: alpine:3.20
+    container_name: cert-init
+    restart: "no"
+    environment:
+      DOMAIN: "${DOMAIN}"
+    volumes:
+      - demo-certs:/certs
+    command:
+      - sh
+      - -c
+      - |
+        if [ -f /certs/server.crt ] && [ -f /certs/server.key ]; then
+          echo "--- certs already exist, skipping generation ---"
+          exit 0
+        fi
+        apk add --no-cache openssl > /dev/null 2>&1
+
+        openssl genrsa -out /certs/ca.key 4096 2>/dev/null
+        openssl req -x509 -new -nodes \
+          -key /certs/ca.key -sha256 -days 3650 \
+          -out /certs/ca.crt \
+          -subj "/C=US/ST=Demo/L=Demo/O=MunkiReport Demo CA/CN=MunkiReport Demo CA"
+
+        openssl genrsa -out /certs/server.key 2048 2>/dev/null
+        openssl req -new \
+          -key /certs/server.key \
+          -out /tmp/server.csr \
+          -subj "/C=US/ST=Demo/L=Demo/O=MunkiReport/CN=$${DOMAIN}"
+
+        cat > /tmp/san.cnf << SANEOF
+        authorityKeyIdentifier=keyid,issuer
+        basicConstraints=CA:FALSE
+        keyUsage=digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment
+        subjectAltName=DNS:$${DOMAIN},DNS:localhost,IP:127.0.0.1
+        SANEOF
+
+        openssl x509 -req \
+          -in /tmp/server.csr \
+          -CA /certs/ca.crt -CAkey /certs/ca.key -CAcreateserial \
+          -out /certs/server.crt \
+          -days 365 -sha256 \
+          -extfile /tmp/san.cnf
+
+        rm -f /tmp/server.csr /tmp/san.cnf /certs/ca.srl
+        echo "--- demo certs generated for $${DOMAIN} ---"
+
+  # ---------------------------------------------------------------------------
+  # Traefik init — writes dynamic routing config with file-based TLS.
+  # ---------------------------------------------------------------------------
+  traefik-init:
+    image: busybox:${BUSYBOX_VERSION:-latest}
+    container_name: traefik-init
+    restart: "no"
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+    environment:
+      DOMAIN: "${DOMAIN}"
+    volumes:
+      - traefik-config:/etc/traefik/conf.d
+    command:
+      - sh
+      - -c
+      - |
+        cat > /etc/traefik/conf.d/munkireport.yml << EOF
+        http:
+          routers:
+            munkireport:
+              rule: "Host(\`${DOMAIN}\`) || Host(\`localhost\`)"
+              entryPoints:
+                - websecure
+              tls: {}
+              service: munkireport
+          services:
+            munkireport:
+              loadBalancer:
+                servers:
+                  - url: "http://munkireport:80"
+        tls:
+          certificates:
+            - certFile: /certs/server.crt
+              keyFile: /certs/server.key
+        EOF
+        echo "--- traefik demo config written ---"
+        cat /etc/traefik/conf.d/munkireport.yml
+
+  # ---------------------------------------------------------------------------
+  # Traefik — reverse proxy with file-based TLS (no ACME / Let's Encrypt).
+  # ---------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    restart: unless-stopped
+    depends_on:
+      traefik-init:
+        condition: service_completed_successfully
+    command:
+      - "--providers.file.directory=/etc/traefik/conf.d"
+      - "--providers.file.watch=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - traefik-config:/etc/traefik/conf.d:ro
+      - demo-certs:/certs:ro
+    networks:
+      - munkireport-net
+
+  # ---------------------------------------------------------------------------
+  # Admin user init — writes admin.yml into a named volume.
+  # ---------------------------------------------------------------------------
+  munkireport-init:
+    image: busybox:${BUSYBOX_VERSION:-latest}
+    container_name: munkireport-init
+    restart: "no"
+    environment:
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_REALNAME: "${ADMIN_REALNAME:-Administrator}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@example.com}"
+      ADMIN_PASSWORD_HASH: "${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH must be set}"
+    volumes:
+      - munkireport-users:/users
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /users
+        {
+          printf 'username: %s\n' "$$ADMIN_USERNAME"
+          printf 'realname: %s\n' "$$ADMIN_REALNAME"
+          printf "password_hash: '%s'\n" "$$ADMIN_PASSWORD_HASH"
+          printf 'email: %s\n' "$$ADMIN_EMAIL"
+        } > /users/admin.yml
+        echo "--- admin.yml written ---"
+        cat /users/admin.yml
+
+  # ---------------------------------------------------------------------------
+  # MariaDB 11.4 LTS
+  # ---------------------------------------------------------------------------
+  db:
+    image: mariadb:${MARIADB_VERSION:-11.4}
+    container_name: munkireport-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-munkireport}"
+      MYSQL_USER: "${MYSQL_USER:-munkireport}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    volumes:
+      - munkireport-db:/var/lib/mysql
+    networks:
+      - munkireport-net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # MunkiReport — built from Dockerfile in this repo
+  # ---------------------------------------------------------------------------
+  munkireport:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MUNKIREPORT_VERSION: "5.8.0"
+    container_name: munkireport
+    restart: unless-stopped
+    depends_on:
+      munkireport-init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    environment:
+      SITENAME: "${SITENAME:-MunkiReport Demo}"
+      WEBHOST: "https://${DOMAIN}"
+      PASSPHRASE: "${CLIENT_PASSPHRASE}"
+
+      CONNECTION_DRIVER: "mysql"
+      CONNECTION_HOST: "db"
+      CONNECTION_PORT: "3306"
+      CONNECTION_DATABASE: "${MYSQL_DATABASE:-munkireport}"
+      CONNECTION_USERNAME: "${MYSQL_USER:-munkireport}"
+      CONNECTION_PASSWORD: "${MYSQL_PASSWORD}"
+      CONNECTION_CHARSET: "utf8mb4"
+      CONNECTION_COLLATION: "utf8mb4_unicode_ci"
+
+      AUTH_METHODS: "LOCAL"
+      ROLES_ADMIN: "admin"
+      ALLOW_MIGRATIONS: "TRUE"
+
+      MODULES: >-
+        disk_report,managedinstalls,munkireport,munkireportinfo,
+        applications,inventory,network,security,filevault_status,
+        softwareupdate,displays_info,installhistory,user_sessions,
+        mdm_status,power,wifi
+
+    volumes:
+      - munkireport-users:/var/munkireport/local/users
+      - munkireport-data:/var/munkireport/local
+    networks:
+      - munkireport-net
+
+# =============================================================================
+# Volumes — all Docker-managed, nothing required on the host filesystem
+# =============================================================================
+volumes:
+  demo-certs:
+  traefik-config:
+  munkireport-db:
+  munkireport-users:
+  munkireport-data:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  munkireport-net:
+    driver: bridge

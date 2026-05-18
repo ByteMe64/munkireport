@@ -14,6 +14,7 @@ Everything in the repo:
 - `generate-admin-hash.sh` — interactive script that produces a bcrypt hash for `.env`'s `ADMIN_PASSWORD_HASH`. Requires `htpasswd` (ships with macOS, `apache2-utils` on Debian/Ubuntu).
 - `client-setup.sh` — runs on a **Mac client**, not the server; installs the MunkiReport agent against a deployed server.
 - `docker-compose.demo.yml` — overlay for local demo: swaps ACME for file-based TLS certs from `./certs/`.
+- `docker-compose.portainer-demo.yml` — standalone demo stack for Portainer. Generates certs at deploy time via an init container — no bind mounts, no host prerequisites.
 - `env.demo` — `.env` template pre-filled with localhost-friendly demo defaults.
 
 ## Common commands
@@ -58,6 +59,33 @@ docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
 If using a DOMAIN other than `localhost`, add a hosts entry: `echo "127.0.0.1 myhost.local" | sudo tee -a /etc/hosts`
 
 The demo overlay (`docker-compose.demo.yml`) is the **only** config that uses a bind mount (`./certs`). The production stack remains fully Portainer-ready.
+
+### Portainer demo deployment
+
+`docker-compose.portainer-demo.yml` is a standalone stack that generates certs at deploy time — no files need to exist on the host.
+
+1. In Portainer: **Stacks → Add stack → Git Repository**
+2. Set the repository URL and branch (`feature/demo-tls`)
+3. Set **Compose path** to `docker-compose.portainer-demo.yml`
+4. Under **Environment variables**, add:
+
+   | Variable | Example value |
+   |---|---|
+   | `DOMAIN` | `munkireport.local` |
+   | `MYSQL_ROOT_PASSWORD` | *(any strong password)* |
+   | `MYSQL_PASSWORD` | *(any strong password)* |
+   | `ADMIN_PASSWORD_HASH` | `$2y$10$...` *(from `generate-admin-hash.sh`)* |
+   | `CLIENT_PASSPHRASE` | *(any shared secret)* |
+
+5. Click **Deploy the stack**
+6. Extract the CA cert and trust it on each Mac client:
+   ```bash
+   docker cp cert-init:/certs/ca.crt ./ca.crt
+   sudo security add-trusted-cert -d -r trustRoot \
+     -k /Library/Keychains/System.keychain ca.crt
+   ```
+
+If `DOMAIN` is not `localhost`, add a hosts entry on each client: `echo "127.0.0.1 munkireport.local" | sudo tee -a /etc/hosts` (or point it at the Portainer host IP).
 
 ## Architecture notes that aren't obvious from one file
 
