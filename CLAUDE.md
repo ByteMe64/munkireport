@@ -15,7 +15,8 @@ Everything in the repo:
 - `client-setup.sh` — runs on a **Mac client**, not the server; installs the MunkiReport agent against a deployed server.
 - `docker-compose.demo.yml` — overlay for local demo: swaps ACME for file-based TLS certs from `./certs/`.
 - `docker-compose.portainer-demo.yml` — standalone demo stack for Portainer. Generates certs at deploy time via an init container — no bind mounts, no host prerequisites.
-- `env.demo` — `.env` template pre-filled with localhost-friendly demo defaults.
+- `env.demo` — `.env` template for local demo, includes full setup steps in the header.
+- `env.portainer-demo` — `.env` template for Portainer demo, includes full setup steps in the header.
 
 ## Common commands
 
