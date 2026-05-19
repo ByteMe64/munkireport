@@ -14,13 +14,14 @@
 set -e
 
 DOMAIN="${1:-}"
-CERT_DIR="certs"
+CERT_DIR="${CERT_DIR:-}"
 
-if [[ -z "$DOMAIN" ]]; then
-    if [[ -f .env ]]; then
-        DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
-    fi
+if [[ -f .env ]]; then
+    [[ -z "$DOMAIN" ]]   && DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
+    [[ -z "$CERT_DIR" ]] && CERT_DIR=$(grep '^CERT_DIR=' .env | cut -d= -f2)
 fi
+
+CERT_DIR="${CERT_DIR:-./certs}"
 
 if [[ -z "$DOMAIN" ]]; then
     echo "Error: no domain specified." >&2

@@ -11,12 +11,12 @@
 #   2. Run: bash generate-demo-cert.sh
 #   3. Trust the CA on macOS clients:
 #        sudo security add-trusted-cert -d -r trustRoot \
-#          -k /Library/Keychains/System.keychain certs/ca.crt
+#          -k /Library/Keychains/System.keychain ${CERT_DIR}/ca.crt
 #
 # What this changes from the base docker-compose.yml:
 #   - traefik-init writes TLS file config instead of ACME certResolver config
-#   - traefik drops all ACME/Let's Encrypt args; certs come from ./certs/
-#   - ./certs/ is bind-mounted into traefik (the only bind mount in the stack)
+#   - traefik drops all ACME/Let's Encrypt args; certs come from CERT_DIR
+#   - CERT_DIR (default: ./certs) is bind-mounted into traefik
 #
 # =============================================================================
 
@@ -60,4 +60,4 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
     volumes:
-      - ./certs:/certs:ro
+      - ${CERT_DIR:-./certs}:/certs:ro
