@@ -8,7 +8,8 @@ This repo is **not** the MunkiReport application — it is a deployment wrapper 
 
 Everything in the repo:
 
-- `Dockerfile` — builds the MunkiReport image on Ubuntu 24.04 + PHP 8.5 + Apache 2.4.
+- `Dockerfile` — builds the MunkiReport image on Ubuntu 24.04 + PHP 8.5 + Apache 2.4. Uses `entrypoint.sh` as its entrypoint.
+- `entrypoint.sh` — runs at container startup; generates `/var/munkireport/.env` from Docker environment variables so the PHP app can read them, then starts Apache. This is necessary because MunkiReport-php reads config from a `.env` file, not from OS environment variables directly.
 - `docker-compose.yml` — production stack: Traefik v3.3 (Let's Encrypt TLS) → MunkiReport → MariaDB 11.4, plus two init containers.
 - `docker-compose.demo.yml` — **overlay** for local demo: swaps ACME for file-based TLS certs from `CERT_DIR` (default `./certs/`). Use with `-f docker-compose.yml -f docker-compose.demo.yml`.
 - `docker-compose.portainer-demo.yml` — **standalone** demo stack for Portainer. Generates certs at deploy time via an `alpine:3.20` init container — no bind mounts, no host prerequisites.
@@ -103,6 +104,15 @@ If `DOMAIN` is not `localhost`, add a hosts entry on each client: `echo "127.0.0
 
 ## Architecture notes that aren't obvious from one file
 
+### Container config: entrypoint.sh generates the app .env
+
+MunkiReport-php reads its configuration from `/var/munkireport/.env` — a dotenv file inside the application directory. It does **not** read OS-level environment variables directly. The `entrypoint.sh` script bridges this gap: on every container start, it writes the Docker environment variables into `/var/munkireport/.env` (with quoted values to handle spaces), then exec's Apache.
+
+This means:
+- **All config changes go through Portainer stack env vars** (or `.env` for local compose) — they are the single source of truth.
+- **Manual edits to `/var/munkireport/.env` inside the container do not persist** — the file is regenerated on every restart.
+- **New MunkiReport config variables** need to be added to `entrypoint.sh`, then to the `environment:` block in the compose file(s).
+
 ### Portainer-ready: no host bind mounts, no Docker socket
 
 The stack is intentionally designed to deploy via Portainer with zero host filesystem prerequisites:
@@ -126,12 +136,16 @@ Traefik does HTTP-01 ACME on port 80 → certs land in the `traefik-certs` volum
 
 ### Client ↔ server passphrase
 
-Mac clients authenticate to the server by sending a shared secret. The same value must appear in two places:
+Mac clients authenticate to the server by sending a shared secret. The config flow is:
 
-- Server side: `CLIENT_PASSPHRASE` in `.env` (passed to the container as `PASSPHRASE`).
-- Client side: `PASSPHRASE` at the top of `client-setup.sh` (written to `/Library/Preferences/MunkiReport.plist` on the Mac).
+1. `CLIENT_PASSPHRASE` is set in `.env` (or Portainer stack environment variables).
+2. Docker Compose maps it into the container as `PASSPHRASE`.
+3. `entrypoint.sh` writes it to `/var/munkireport/.env` as `CLIENT_PASSPHRASES` — this is the variable name MunkiReport-php actually reads (defined in `app/config/app.php`).
+4. On the Mac client side, the same value must be set as `Passphrase` in `/Library/Preferences/MunkiReport.plist` (written by `client-setup.sh`).
 
 If they don't match, clients silently fail to register.
+
+**Important**: MunkiReport-php reads `CLIENT_PASSPHRASES` (plural) from its `.env` file, **not** `PASSPHRASE`. The entrypoint handles this translation. Editing `/var/munkireport/.env` directly inside the container will not persist — the entrypoint regenerates it on every restart from the Docker environment variables.
 
 ### Configurable image versions and ports
 
