@@ -9,14 +9,27 @@ This repo is **not** the MunkiReport application — it is a deployment wrapper 
 Everything in the repo:
 
 - `Dockerfile` — builds the MunkiReport image on Ubuntu 24.04 + PHP 8.5 + Apache 2.4.
-- `docker-compose.yml` — full stack: Traefik (TLS) → MunkiReport → MariaDB 11.4, plus two init containers.
+- `docker-compose.yml` — production stack: Traefik v3.3 (Let's Encrypt TLS) → MunkiReport → MariaDB 11.4, plus two init containers.
+- `docker-compose.demo.yml` — **overlay** for local demo: swaps ACME for file-based TLS certs from `CERT_DIR` (default `./certs/`). Use with `-f docker-compose.yml -f docker-compose.demo.yml`.
+- `docker-compose.portainer-demo.yml` — **standalone** demo stack for Portainer. Generates certs at deploy time via an `alpine:3.20` init container — no bind mounts, no host prerequisites.
 - `env` — **template** for `.env` (note: no dot prefix). Copy to `.env` and replace the `CHANGE_ME_*` placeholders before first deploy. Docker Compose reads `.env` automatically.
-- `generate-admin-hash.sh` — interactive script that produces a bcrypt hash for `.env`'s `ADMIN_PASSWORD_HASH`. Requires `htpasswd` (ships with macOS, `apache2-utils` on Debian/Ubuntu).
-- `client-setup.sh` — runs on a **Mac client**, not the server; installs the MunkiReport agent against a deployed server.
-- `docker-compose.demo.yml` — overlay for local demo: swaps ACME for file-based TLS certs from `./certs/`.
-- `docker-compose.portainer-demo.yml` — standalone demo stack for Portainer. Generates certs at deploy time via an init container — no bind mounts, no host prerequisites.
 - `env.demo` — `.env` template for local demo, includes full setup steps in the header.
 - `env.portainer-demo` — `.env` template for Portainer demo, includes full setup steps in the header.
+- `generate-admin-hash.sh` — interactive script that produces a bcrypt hash for `.env`'s `ADMIN_PASSWORD_HASH`. Requires `htpasswd` (ships with macOS, `apache2-utils` on Debian/Ubuntu).
+- `generate-demo-cert.sh` — generates a self-signed CA + server cert for the local demo. Reads `DOMAIN` and `CERT_DIR` from `.env` or accepts domain as a CLI argument.
+- `client-setup.sh` — runs on a **Mac client**, not the server; installs the MunkiReport agent against a deployed server.
+
+## Three deployment modes
+
+The repo supports three distinct deployment paths — know which one you're working with:
+
+| Mode | Compose file(s) | TLS source | Env template | Bind mounts? |
+|---|---|---|---|---|
+| **Production** | `docker-compose.yml` | Let's Encrypt (ACME HTTP-01) | `env` | None |
+| **Local demo** | `docker-compose.yml` + `docker-compose.demo.yml` | File certs in `CERT_DIR` | `env.demo` | `CERT_DIR` (default `./certs`) |
+| **Portainer demo** | `docker-compose.portainer-demo.yml` (standalone) | Generated at deploy time by `cert-init` | `env.portainer-demo` | None |
+
+The Portainer demo compose file is **not** an overlay — it duplicates the full stack so it can be deployed from Portainer without referencing a second file. Changes to shared services (db, munkireport, munkireport-init) must be kept in sync between `docker-compose.yml` and `docker-compose.portainer-demo.yml`.
 
 ## Common commands
 
@@ -59,7 +72,7 @@ docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
 
 If using a DOMAIN other than `localhost`, add a hosts entry: `echo "127.0.0.1 myhost.local" | sudo tee -a /etc/hosts`
 
-The demo overlay (`docker-compose.demo.yml`) is the **only** config that uses a bind mount (`./certs`). The production stack remains fully Portainer-ready.
+The demo overlay (`docker-compose.demo.yml`) is the **only** config that uses a bind mount (`CERT_DIR`, default `./certs`). The production and Portainer stacks remain fully Portainer-ready (no bind mounts).
 
 ### Portainer demo deployment
 
@@ -127,11 +140,16 @@ These `.env` vars have defaults in `docker-compose.yml` so they're easy to miss:
 | Variable | Default | Notes |
 |---|---|---|
 | `MARIADB_VERSION` | `11.4` | MariaDB image tag |
-| `BUSYBOX_VERSION` | `latest` | Used by both init containers |
+| `BUSYBOX_VERSION` | `latest` | Used by init containers (`munkireport-init`, `traefik-init`) |
 | `HTTP_PORT` | `80` | Host-side HTTP port |
 | `HTTPS_PORT` | `443` | Host-side HTTPS port |
+| `CERT_DIR` | `./certs` | Demo overlay only — where `generate-demo-cert.sh` writes and Traefik reads certs |
 
 The MunkiReport version itself is a **build arg** (`MUNKIREPORT_VERSION`, default `5.8.0` in the Dockerfile) — changing it requires a rebuild, not just a restart.
+
+### Portainer demo vs production compose differences
+
+The Portainer demo (`docker-compose.portainer-demo.yml`) provides defaults for `MYSQL_DATABASE` and `MYSQL_USER` (both default to `munkireport`), while the production compose requires them to be set in `.env`. The Portainer demo also uses `alpine:3.20` for the `cert-init` container (needs `openssl`), unlike the other init containers which use `busybox`.
 
 ### Enabled modules
 
