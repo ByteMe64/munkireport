@@ -1,6 +1,6 @@
 #!/bin/sh
 # Generate MunkiReport .env from container environment variables.
-# Docker passes these via the environment: block in docker-compose.yml;
+# Docker passes these via the environment: block in docker-compose.portainer-demo.yml;
 # this script writes them into the file the PHP app actually reads.
 
 ENV_FILE="/var/munkireport/.env"
