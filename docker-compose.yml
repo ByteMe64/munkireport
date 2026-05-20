@@ -8,7 +8,7 @@
 #   traefik           — reverse proxy, TLS termination, Let's Encrypt
 #   munkireport-init  — writes admin user YAML into a named volume
 #   db                — MariaDB 11.4 LTS
-#   munkireport       — MunkiReport v5.8.0, built from Dockerfile
+#   munkireport       — MunkiReport v5.8.1, built from Dockerfile
 #                       Ubuntu 24.04 LTS + PHP 8.5 + Apache 2.4
 #
 # NOTE ON TRAEFIK / DOCKER SOCKET:
@@ -62,7 +62,7 @@ services:
   # redirected to HTTPS. All normal traffic uses port 443.
   # ---------------------------------------------------------------------------
   traefik:
-    image: traefik:v3.3
+    image: traefik:${TRAEFIK_VERSION:-v3.3}
     container_name: traefik
     restart: unless-stopped
     depends_on:
@@ -152,7 +152,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # MunkiReport — built from Dockerfile in this repo
-  # Ubuntu 24.04 LTS + PHP 8.3 + Apache 2.4 + MunkiReport v5.8.0
+  # Ubuntu 24.04 LTS + PHP 8.5 + Apache 2.4 + MunkiReport v5.8.1
   # Note: no 'image:' tag here — this is build-only, not pulled from a registry
   # ---------------------------------------------------------------------------
   munkireport:
@@ -160,7 +160,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        MUNKIREPORT_VERSION: "5.8.0"
+        MUNKIREPORT_VERSION: "${MUNKIREPORT_VERSION:-5.8.1}"
     container_name: munkireport
     restart: unless-stopped
     depends_on:
@@ -173,24 +173,20 @@ services:
       WEBHOST: "https://${DOMAIN}"
       PASSPHRASE: "${CLIENT_PASSPHRASE}"
 
-      CONNECTION_DRIVER: "mysql"
+      CONNECTION_DRIVER: "${CONNECTION_DRIVER:-mysql}"
       CONNECTION_HOST: "db"
-      CONNECTION_PORT: "3306"
+      CONNECTION_PORT: "${CONNECTION_PORT:-3306}"
       CONNECTION_DATABASE: "${MYSQL_DATABASE}"
       CONNECTION_USERNAME: "${MYSQL_USER}"
       CONNECTION_PASSWORD: "${MYSQL_PASSWORD}"
-      CONNECTION_CHARSET: "utf8mb4"
-      CONNECTION_COLLATION: "utf8mb4_unicode_ci"
+      CONNECTION_CHARSET: "${CONNECTION_CHARSET:-utf8mb4}"
+      CONNECTION_COLLATION: "${CONNECTION_COLLATION:-utf8mb4_unicode_ci}"
 
-      AUTH_METHODS: "LOCAL"
-      ROLES_ADMIN: "admin"
-      ALLOW_MIGRATIONS: "TRUE"
+      AUTH_METHODS: "${AUTH_METHODS:-LOCAL}"
+      ROLES_ADMIN: "${ROLES_ADMIN:-admin}"
+      ALLOW_MIGRATIONS: "${ALLOW_MIGRATIONS:-TRUE}"
 
-      MODULES: >-
-        disk_report,managedinstalls,munkireport,munkireportinfo,
-        applications,inventory,network,security,filevault_status,
-        softwareupdate,displays_info,installhistory,user_sessions,
-        mdm_status,power,wifi
+      MODULES: "${MODULES:-disk_report,managedinstalls,munkireport,munkireportinfo,applications,inventory,network,security,filevault_status,softwareupdate,displays_info,installhistory,user_sessions,mdm_status,power,wifi}"
 
     volumes:
       - munkireport-users:/var/munkireport/local/users

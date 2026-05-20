@@ -8,7 +8,7 @@
 
 FROM ubuntu:24.04
 
-ARG MUNKIREPORT_VERSION=5.8.0
+ARG MUNKIREPORT_VERSION=5.8.1
 
 LABEL maintainer="your-team@example.com"
 LABEL description="MunkiReport v${MUNKIREPORT_VERSION} on Ubuntu 24.04 LTS with PHP 8.5"
@@ -78,6 +78,13 @@ RUN echo '<VirtualHost *:80>\n\
     && a2enmod rewrite php8.5
 
 # ---------------------------------------------------------------------------
+# Entrypoint — generates /var/munkireport/.env from container env vars
+# so the PHP app can read them, then starts Apache.
+# ---------------------------------------------------------------------------
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# ---------------------------------------------------------------------------
 # Permissions
 # ---------------------------------------------------------------------------
 RUN chown -R www-data:www-data /var/munkireport \
@@ -88,4 +95,4 @@ RUN chown -R www-data:www-data /var/munkireport \
 # ---------------------------------------------------------------------------
 EXPOSE 80
 
-CMD ["apache2ctl", "-D", "FOREGROUND"]
+ENTRYPOINT ["entrypoint.sh"]
