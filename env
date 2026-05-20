@@ -1,6 +1,7 @@
 # Image versions
 MUNKIREPORT_VERSION=5.8.1
 MARIADB_VERSION=11.4
+TRAEFIK_VERSION=v3.3
 BUSYBOX_VERSION=latest
 
 # Database
@@ -11,6 +12,9 @@ MYSQL_PASSWORD=CHANGE_ME_DB_PASSWORD
 
 # MunkiReport
 SITENAME=MunkiReport
+MODULES=disk_report,managedinstalls,munkireport,munkireportinfo,applications,inventory,network,security,filevault_status,softwareupdate,displays_info,installhistory,user_sessions,mdm_status,power,wifi
+AUTH_METHODS=LOCAL
+ALLOW_MIGRATIONS=TRUE
 
 # Admin user — written into local/users/admin.yml at deploy time.
 # The hash MUST be single-quoted so docker compose does not interpolate the $ chars.

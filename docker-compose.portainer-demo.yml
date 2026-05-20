@@ -34,7 +34,7 @@ services:
   # Skips generation if certs already exist (safe to restart/redeploy).
   # ---------------------------------------------------------------------------
   cert-init:
-    image: alpine:3.20
+    image: alpine:${ALPINE_VERSION:-3.20}
     container_name: cert-init
     restart: "no"
     environment:
@@ -124,7 +124,7 @@ services:
   # Traefik — reverse proxy with file-based TLS (no ACME / Let's Encrypt).
   # ---------------------------------------------------------------------------
   traefik:
-    image: traefik:v3.3
+    image: traefik:${TRAEFIK_VERSION:-v3.3}
     container_name: traefik
     restart: unless-stopped
     depends_on:
@@ -218,24 +218,20 @@ services:
       WEBHOST: "https://${DOMAIN}"
       PASSPHRASE: "${CLIENT_PASSPHRASE}"
 
-      CONNECTION_DRIVER: "mysql"
+      CONNECTION_DRIVER: "${CONNECTION_DRIVER:-mysql}"
       CONNECTION_HOST: "db"
-      CONNECTION_PORT: "3306"
+      CONNECTION_PORT: "${CONNECTION_PORT:-3306}"
       CONNECTION_DATABASE: "${MYSQL_DATABASE:-munkireport}"
       CONNECTION_USERNAME: "${MYSQL_USER:-munkireport}"
       CONNECTION_PASSWORD: "${MYSQL_PASSWORD}"
-      CONNECTION_CHARSET: "utf8mb4"
-      CONNECTION_COLLATION: "utf8mb4_unicode_ci"
+      CONNECTION_CHARSET: "${CONNECTION_CHARSET:-utf8mb4}"
+      CONNECTION_COLLATION: "${CONNECTION_COLLATION:-utf8mb4_unicode_ci}"
 
-      AUTH_METHODS: "LOCAL"
-      ROLES_ADMIN: "admin"
-      ALLOW_MIGRATIONS: "TRUE"
+      AUTH_METHODS: "${AUTH_METHODS:-LOCAL}"
+      ROLES_ADMIN: "${ROLES_ADMIN:-admin}"
+      ALLOW_MIGRATIONS: "${ALLOW_MIGRATIONS:-TRUE}"
 
-      MODULES: >-
-        disk_report,managedinstalls,munkireport,munkireportinfo,
-        applications,inventory,network,security,filevault_status,
-        softwareupdate,displays_info,installhistory,user_sessions,
-        mdm_status,power,wifi
+      MODULES: "${MODULES:-disk_report,managedinstalls,munkireport,munkireportinfo,applications,inventory,network,security,filevault_status,softwareupdate,displays_info,installhistory,user_sessions,mdm_status,power,wifi}"
 
     volumes:
       - munkireport-users:/var/munkireport/local/users
