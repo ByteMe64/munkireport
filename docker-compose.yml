@@ -160,7 +160,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        MUNKIREPORT_VERSION: "5.8.0"
+        MUNKIREPORT_VERSION: "5.8.1"
     container_name: munkireport
     restart: unless-stopped
     depends_on:
