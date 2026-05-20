@@ -8,7 +8,7 @@
 
 FROM ubuntu:24.04
 
-ARG MUNKIREPORT_VERSION=5.4
+ARG MUNKIREPORT_VERSION=5.8.1
 
 LABEL maintainer="your-team@example.com"
 LABEL description="MunkiReport v${MUNKIREPORT_VERSION} on Ubuntu 24.04 LTS with PHP 8.5"
