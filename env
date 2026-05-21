@@ -57,7 +57,7 @@ ALLOW_MIGRATIONS=TRUE
 ADMIN_USERNAME=admin
 ADMIN_REALNAME=Administrator
 ADMIN_EMAIL=admin@localhost
-ADMIN_PASSWORD_HASH='CHANGE_ME — run ./generate-admin-hash.sh'
+ADMIN_PASSWORD_HASH='$2y$10$78iiH/7OG0b/iDTdl3pEue2Zzo1VPMbiOdqml9P716TreQqcTEqaS'
 
 # TLS — hostname for the generated certificate
 DOMAIN=munkireport.local
