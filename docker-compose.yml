@@ -205,7 +205,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        MUNKIREPORT_VERSION: "${MUNKIREPORT_VERSION:-5.8.1}"
+        MUNKIREPORT_VERSION: ${MUNKIREPORT_VERSION}
     container_name: munkireport
     restart: unless-stopped
     depends_on:
