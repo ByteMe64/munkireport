@@ -188,7 +188,7 @@ docker exec munkireport cat /var/munkireport/local/users/admin.yml
    ```bash
    docker compose ps -a | grep init
    ```
-   Both `munkireport-init` and `traefik-init` should show `Exited (0)`.
+   All three init containers (`cert-init`, `munkireport-init`, and `traefik-init`) should show `Exited (0)`.
 
 3. If `munkireport-init` failed, it's usually a missing `ADMIN_PASSWORD_HASH` in `.env`.
 

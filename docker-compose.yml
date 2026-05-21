@@ -9,7 +9,7 @@
 # Deploy via Portainer:
 #   1. Stacks → Add stack → Git Repository
 #   2. Point at this repo/branch, set Compose path to:
-#        docker-compose.portainer-demo.yml
+#        docker-compose.yml
 #   3. Fill in the environment variables (see below)
 #   4. Deploy the stack
 #
@@ -34,11 +34,11 @@ services:
   # Skips generation if certs already exist (safe to restart/redeploy).
   # ---------------------------------------------------------------------------
   cert-init:
-    image: alpine:${ALPINE_VERSION:-3.20}
+    image: alpine:${ALPINE_VERSION:-3.23}
     container_name: cert-init
     restart: "no"
     environment:
-      DOMAIN: "${DOMAIN}"
+      DOMAIN: "${DOMAIN:-munkireport.local}"
     volumes:
       - demo-certs:/certs
     command:
@@ -91,7 +91,7 @@ services:
       cert-init:
         condition: service_completed_successfully
     environment:
-      DOMAIN: "${DOMAIN}"
+      DOMAIN: "${DOMAIN:-munkireport.local}"
     volumes:
       - traefik-config:/etc/traefik/conf.d
     command:
@@ -124,7 +124,7 @@ services:
   # Traefik — reverse proxy with file-based TLS (no ACME / Let's Encrypt).
   # ---------------------------------------------------------------------------
   traefik:
-    image: traefik:${TRAEFIK_VERSION:-v3.3}
+    image: traefik:${TRAEFIK_VERSION:-v3.7.1}
     container_name: traefik
     restart: unless-stopped
     depends_on:
@@ -205,7 +205,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        MUNKIREPORT_VERSION: ${MUNKIREPORT_VERSION}
+        MUNKIREPORT_VERSION: ${MUNKIREPORT_VERSION:-5.8.1}
     container_name: munkireport
     restart: unless-stopped
     depends_on:
@@ -215,8 +215,8 @@ services:
         condition: service_healthy
     environment:
       SITENAME: "${SITENAME:-MunkiReport Demo}"
-      WEBHOST: "https://${DOMAIN}"
-      PASSPHRASE: "${CLIENT_PASSPHRASE}"
+      WEBHOST: "https://${DOMAIN:-munkireport.local}"
+      PASSPHRASE: "${CLIENT_PASSPHRASE:-demo-passphrase}"
 
       CONNECTION_DRIVER: "${CONNECTION_DRIVER:-mysql}"
       CONNECTION_HOST: "db"

@@ -4,12 +4,12 @@ Deployment wrapper (not the app itself) for [munkireport-php](https://github.com
 
 ## Branch: feature/demo-tls
 
-Self-contained local demo stack using self-signed TLS certificates. Deployed via Portainer using `docker-compose.portainer-demo.yml`. Certificates are generated at deploy time by the `cert-init` container — no host-side cert generation needed.
+Self-contained local demo stack using self-signed TLS certificates. Deployed via Portainer using `docker-compose.yml`. Certificates are generated at deploy time by the `cert-init` container — no host-side cert generation needed.
 
 ### Key files
 
-- `docker-compose.portainer-demo.yml` — full standalone stack (cert-init, traefik-init, traefik, db, munkireport)
-- `env` — environment variable template; copy to `.env` and fill in values
+- `docker-compose.yml` — full standalone stack (cert-init, traefik-init, traefik, db, munkireport)
+- `.env` — environment variable configuration
 - `Dockerfile` — builds MunkiReport image (Ubuntu 24.04 + PHP + Apache)
 - `entrypoint.sh` — writes Docker env vars into `/var/munkireport/.env` at container start
 - `generate-admin-hash.sh` — generates bcrypt hash for admin password
