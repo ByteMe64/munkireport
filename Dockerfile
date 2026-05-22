@@ -57,6 +57,7 @@ RUN curl -fsSL -L \
     && tar -xzf /tmp/munkireport.tar.gz -C /var/munkireport --strip-components=1 \
     && rm /tmp/munkireport.tar.gz \
     && cd /var/munkireport \
+    && composer config audit.block-insecure false \
     && composer install --no-dev --optimize-autoloader --no-interaction
 
 # ---------------------------------------------------------------------------
